@@ -1,0 +1,18 @@
+<svg width="300" height="300" viewBox="0 0 300 300" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- BLE Connection illustration -->
+  <circle cx="100" cy="150" r="40" fill="#E0E0FF" stroke="#6200EE" stroke-width="3"/>
+  <text x="100" y="155" font-family="Arial" font-size="14" fill="#6200EE" text-anchor="middle" dominant-baseline="middle">ESP32C3</text>
+  
+  <!-- Phone illustration -->
+  <rect x="180" y="120" width="40" height="70" rx="5" fill="#E0E0FF" stroke="#6200EE" stroke-width="3"/>
+  <rect x="185" y="125" width="30" height="50" rx="2" fill="#6200EE"/>
+  <circle cx="200" cy="185" r="3" fill="#6200EE"/>
+  
+  <!-- BLE connection waves -->
+  <path d="M140 135 Q 160 135 180 135" stroke="#6200EE" stroke-width="2" stroke-dasharray="5,5" fill="none"/>
+  <path d="M140 150 Q 160 150 180 150" stroke="#6200EE" stroke-width="2" stroke-dasharray="5,5" fill="none"/>
+  <path d="M140 165 Q 160 165 180 165" stroke="#6200EE" stroke-width="2" stroke-dasharray="5,5" fill="none"/>
+  
+  <!-- Bluetooth icon -->
+  <path d="M160 110 L170 120 L160 130 L160 110 L170 100 L160 90 Z" fill="#6200EE"/>
+</svg>
