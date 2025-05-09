@@ -237,47 +237,53 @@ class BleService with ChangeNotifier {
 
   // Connect to a device
   Future<bool> connectToDevice(BluetoothDevice device) async {
-    print('BleService: Attempting to connect to ${device.platformName}');
-    try {
-      // Listen for the specific device's connection state changes
-      StreamSubscription<BluetoothConnectionState>? connectionStateSubscription;
-      connectionStateSubscription = device.connectionState.listen((state) async {
-          print('BleService: Device ${device.platformName} connection state: $state');
-          if (state == BluetoothConnectionState.disconnected) {
-              // Handle disconnection
-              print('BleService: Device ${device.platformName} disconnected.');
-              _currentDevice = null;
-              _isConnected = false;
-              _connectedDeviceController.add(null);
-              notifyListeners();
-              await connectionStateSubscription?.cancel(); // Cancel listener after disconnect
-          } else if (state == BluetoothConnectionState.connected) {
-              // Handle successful connection
-              print('BleService: Device ${device.platformName} connected successfully.');
-              _currentDevice = device;
-              _isConnected = true;
-              _connectedDeviceController.add(_currentDevice);
-              notifyListeners();
-               // Discover services after successful connection
-              _discoverServices(); // Moved service discovery here
-          }
-      });
+  print('BleService: 🔍 [START] Discovering services...');
+  print('BleService: Attempting to connect to ${device.platformName}');
 
+  try {
+    // Pasang listener lebih awal, tetap dibutuhkan oleh BleProvider
+    StreamSubscription<BluetoothConnectionState>? connectionStateSubscription;
+    connectionStateSubscription = device.connectionState.listen((state) async {
+      print('BleService: Device ${device.platformName} connection state: $state');
+      if (state == BluetoothConnectionState.disconnected) {
+        _currentDevice = null;
+        _isConnected = false;
+        _connectedDeviceController.add(null);
+        notifyListeners();
+        await connectionStateSubscription?.cancel();
+      } else if (state == BluetoothConnectionState.connected) {
+        print('BleService: Device ${device.platformName} connected via listener.');
+        _currentDevice = device;
+        _isConnected = true;
+        _connectedDeviceController.add(_currentDevice);
+        notifyListeners();
+        // Jangan panggil _discoverServices() di sini lagi
+      }
+    });
 
-      await device.connect(); // This call completes when the connection is established
-      print('BleService: connect() method finished.');
+    // Lanjutkan proses connect
+    await device.connect();
+    print('BleService: connect() method finished.');
 
-      return true; // Connection process initiated successfully
-    } catch (e) {
-      print('BleService: Error connecting to device: $e');
-      // Clean up state if connection failed
-      _currentDevice = null;
-      _isConnected = false;
-      _connectedDeviceController.add(null);
-      notifyListeners();
-      return false;
-    }
+    // Langsung update state dan panggil discoverServices di sini
+    _currentDevice = device;
+    _isConnected = true;
+    _connectedDeviceController.add(_currentDevice);
+    notifyListeners();
+
+    await _discoverServices(); // <--- Penting di sini
+
+    return true;
+  } catch (e) {
+    print('BleService: Error connecting to device: $e');
+    _currentDevice = null;
+    _isConnected = false;
+    _connectedDeviceController.add(null);
+    notifyListeners();
+    return false;
   }
+}
+
 
   // Disconnect from current device
   Future<void> disconnect() async {
