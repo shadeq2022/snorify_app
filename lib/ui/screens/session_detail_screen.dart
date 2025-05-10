@@ -197,29 +197,16 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
       bottomTitles: AxisTitles(
         sideTitles: SideTitles(
           showTitles: true,
-          reservedSize: 32,
-          interval: 7 * 60 * 1000, // every 6 minutes to reduce overlap
+          interval: 4 * 60 * 1000,
           getTitlesWidget: (value, meta) {
-            final label = DateFormat.Hm().format(DateTime.fromMillisecondsSinceEpoch(value.toInt()));
-            return SideTitleWidget(
-              axisSide: meta.axisSide,
-              space: 4,
-              child: Transform.translate(
-                offset: const Offset(15, 0), // move label left slightly to align
-                child: Text(label),
-              ),
-            );
+            return Text(DateFormat.Hm().format(DateTime.fromMillisecondsSinceEpoch(value.toInt())));
           },
         ),
       ),
       leftTitles: AxisTitles(
         sideTitles: SideTitles(
           showTitles: true,
-          reservedSize: 40, // <-- Added padding between Y axis and chart
-          getTitlesWidget: (value, _) => Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: Text(isSnore ? (value == 1.0 ? 'Yes' : 'No') : '${value.toInt()}'),
-          ),
+          getTitlesWidget: (value, _) => Text(isSnore ? (value == 1.0 ? 'Yes' : 'No') : '${value.toInt()}'),
         ),
       ),
       rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
