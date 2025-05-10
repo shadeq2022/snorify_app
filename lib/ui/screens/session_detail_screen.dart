@@ -197,16 +197,29 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
       bottomTitles: AxisTitles(
         sideTitles: SideTitles(
           showTitles: true,
-          interval: 4 * 60 * 1000,
+          reservedSize: 32,
+          interval: 60 * 60 * 1000, // every 30 minutes to reduce overlap
           getTitlesWidget: (value, meta) {
-            return Text(DateFormat.Hm().format(DateTime.fromMillisecondsSinceEpoch(value.toInt())));
+            final label = DateFormat.Hm().format(DateTime.fromMillisecondsSinceEpoch(value.toInt()));
+            return SideTitleWidget(
+              axisSide: meta.axisSide,
+              space: 4,
+              child: Transform.translate(
+                offset: const Offset(-8, 0), // move label left slightly to align
+                child: Text(label),
+              ),
+            );
           },
         ),
       ),
       leftTitles: AxisTitles(
         sideTitles: SideTitles(
           showTitles: true,
-          getTitlesWidget: (value, _) => Text(isSnore ? (value == 1.0 ? 'Yes' : 'No') : '${value.toInt()}'),
+          reservedSize: 40, // <-- Added padding between Y axis and chart
+          getTitlesWidget: (value, _) => Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: Text(isSnore ? (value == 1.0 ? 'Yes' : 'No') : '${value.toInt()}'),
+          ),
         ),
       ),
       rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
@@ -245,6 +258,22 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
           lineTouchData: buildTouchData(color, isSnore),
           titlesData: buildTitles(isSnore),
           gridData: FlGridData(show: true),
+          extraLinesData: !isSnore
+            ? ExtraLinesData(horizontalLines: [
+                HorizontalLine(
+                  y: 95,
+                  color: Colors.red,
+                  strokeWidth: 1,
+                  dashArray: [5, 5],
+                  label: HorizontalLineLabel(
+                    show: true,
+                    labelResolver: (_) => '95%',
+                    alignment: Alignment.topLeft,
+                    style: const TextStyle(fontSize: 9, color: Colors.red),
+                  ),
+                )
+              ])
+            : ExtraLinesData(),
         ),
       );
     }
