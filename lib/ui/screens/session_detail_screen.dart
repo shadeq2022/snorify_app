@@ -18,14 +18,8 @@ class SessionDetailScreen extends StatefulWidget {
 }
 
 class _SessionDetailScreenState extends State<SessionDetailScreen> {
+  dynamic _lastTouchInput;
   // Zoom and pan controllers
-  double _minX = 0;
-  double _maxX = 0;
-  double minY1 = 80; // SpO2 minimum
-  double maxY1 = 100; // SpO2 maximum
-  double minY2 = -0.2; // Snoring minimum
-  double maxY2 = 1.2; // Snoring maximum
-  
   @override
   void initState() {
     super.initState();
@@ -38,457 +32,232 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Consumer<SessionProvider>(
       builder: (context, sessionProvider, _) {
         final session = sessionProvider.currentSession;
         final readings = sessionProvider.currentReadings;
         
         if (session == null) {
-          return Scaffold(
-            appBar: AppBar(
-              title: const Text('Session Details'),
-            ),
-            body: const Center(child: CircularProgressIndicator()),
+           return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
           );
         }
         
-        // Update chart X range if we have readings
-        if (readings.isNotEmpty && _maxX == 0) {
-          final startTime = readings.first.timestamp;
-          final endTime = readings.last.timestamp;
-          _minX = 0;
-          _maxX = (endTime - startTime) / 60 + 1; // minutes
+        // Hitung waktu awal sesi
+        final sessionStart = DateFormat('yyyy-MM-dd HH:mm:ss').parse(
+          '${session.tanggal} ${session.waktuMulai}'
+        );
+
+        // Hitung statistik SPO2 dan snoring
+        final spo2Values = readings.map((r) => r.spo2).toList();
+        final avgSpO2 = spo2Values.isNotEmpty ? spo2Values.reduce((a, b) => a + b) / spo2Values.length : 0;
+        final minSpO2 = spo2Values.isNotEmpty ? spo2Values.reduce((a, b) => a < b ? a : b) : 0;
+        int dropCount = 0;
+        for (int i = 1; i < spo2Values.length; i++) {
+          if (spo2Values[i - 1] - spo2Values[i] >= 3) dropCount++;
         }
+        final snoreCount = readings.where((r) => r.status == AppConstants.statusSnore).length;
         
         return Scaffold(
           appBar: AppBar(
-            title: Text(session.nama),
+            flexibleSpace: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: isDark
+                      ? [Colors.grey[900]!, Colors.black87]
+                      : [Colors.blue.shade300, Colors.blue.shade600],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+            ),
+            centerTitle: true,
+            title: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Text(session.nama, style: const TextStyle(color: Colors.white70)),
+                Text('Tanggal: ${session.tanggal}', style: const TextStyle(fontSize: 12, color: Colors.white70)),
+              ],
+            ),
             actions: [
+              IconButton(
+                icon: Icon(session.waktuSelesai == null ? Icons.stop_circle_outlined : Icons.delete),
+                tooltip: session.waktuSelesai == null ? 'End Session' : 'Delete Session',
+                onPressed: () {
+                  if (session.waktuSelesai == null) {
+                    _endSession(context, session);
+                  } else {
+                    _showDeleteConfirmationDialog(context, session.id!);
+                  }
+                },
+              ),
               IconButton(
                 icon: const Icon(Icons.edit),
                 onPressed: () => _showEditSessionDialog(context, session),
               ),
-              IconButton(
-                icon: const Icon(Icons.delete),
-                onPressed: () => _showDeleteConfirmationDialog(context, session.id!),
-              ),
             ],
           ),
-          body: Column(
-            children: [
-              // Session info card
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Card(
+          body: readings.isEmpty
+              ? const Center(child: Text('No data available for this session'))
+              : SingleChildScrollView(
                   child: Padding(
-                    padding: const EdgeInsets.all(16.0),
+                    padding: const EdgeInsets.all(12.0),
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              session.nama,
-                              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                        Container(
+                          decoration: BoxDecoration(
+                           gradient: LinearGradient(
+                              colors: isDark
+                                  ? [Colors.grey.shade800, Colors.grey.shade900]
+                                  : [Colors.blue.shade50, Colors.blue.shade100],
+                              begin: Alignment.topLeft,
+                              end: Alignment.centerRight,
                             ),
-                            Text(
-                              session.tanggal,
-                              style: TextStyle(color: Colors.grey[600]),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Icon(Icons.access_time, size: 16, color: Colors.grey[600]),
-                            const SizedBox(width: 4),
-                            Text(
-                              '${session.waktuMulai} - ${session.waktuSelesai ?? "In Progress"}',
-                              style: TextStyle(color: Colors.grey[600]),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            Icon(Icons.timelapse, size: 16, color: Colors.grey[600]),
-                            const SizedBox(width: 4),
-                            Text(
-                              session.durasi != null ? '${session.durasi} minutes' : 'Duration not available',
-                              style: TextStyle(color: Colors.grey[600]),
-                            ),
-                          ],
-                        ),
-                        if (session.deviceId != null) ...[  
-                          const SizedBox(height: 4),
-                          Row(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Icon(Icons.bluetooth, size: 16, color: Colors.grey[600]),
-                              const SizedBox(width: 4),
-                              Text(
-                                'Device ID: ${session.deviceId}',
-                                style: TextStyle(color: Colors.grey[600]),
+                              Row(
+                                children: [
+                                  Icon(Icons.access_time, size: 16, color: isDark ? Colors.white70 : Colors.grey[700]),
+                                  const SizedBox(width: 4),
+                                  Text('${session.waktuMulai} - ${session.waktuSelesai ?? "Now"}')
+                                ],
                               ),
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  Icon(Icons.timelapse, size: 16, color: isDark ? Colors.white70 : Colors.grey[700]),
+                                  const SizedBox(width: 4),
+                                  Text(session.durasi != null ? '${session.durasi} min' : '-')
+                                ],
+                              ),
+                              const Divider(height: 20),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text("Avg SpO₂", style: TextStyle(fontWeight: FontWeight.bold)),
+                                      Text('${avgSpO2.toStringAsFixed(1)}%')
+                                    ],
+                                  ),
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text("Min SpO₂", style: TextStyle(fontWeight: FontWeight.bold)),
+                                      Text('$minSpO2%')
+                                    ],
+                                  ),
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text("Drops ≥3%", style: TextStyle(fontWeight: FontWeight.bold)),
+                                      Text('$dropCount')
+                                    ],
+                                  ),
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text("Snore Events", style: TextStyle(fontWeight: FontWeight.bold)),
+                                      Text('$snoreCount')
+                                    ],
+                                  ),
+                                ],
+                              )
                             ],
                           ),
-                        ],
-                        if (session.catatan != null && session.catatan!.isNotEmpty) ...[  
-                          const SizedBox(height: 8),
-                          const Divider(),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Notes:',
-                            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey[700]),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(session.catatan!),
-                        ],
+                        ),
+                        const SizedBox(height: 16),
+                        _buildCharts(readings, sessionStart)
                       ],
                     ),
                   ),
                 ),
-              ),
-              
-              // Statistics section
-              // Padding(
-              //   padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              //   child: Card(
-              //     child: Padding(
-              //       padding: const EdgeInsets.all(16.0),
-              //       child: _buildStatisticsSection(readings, sessionProvider.snoringPercentage),
-              //     ),
-              //   ),
-              // ),
-              
-              // Charts section
-              Expanded(
-                child: _buildChartsSection(readings, session),
-              ),
-            ],
-          ),
-          floatingActionButton: session.waktuSelesai == null
-              ? FloatingActionButton.extended(
-                  onPressed: () => _endSession(context, session),
-                  icon: const Icon(Icons.stop),
-                  label: const Text('End Session'),
-                )
-              : null,
         );
       },
     );
   }
 
-  Widget _buildStatisticsSection(List<SensorReading> readings, double snoringPercentage) {
-    if (readings.isEmpty) {
-      return const Center(child: Text('No data available for this session'));
+  Widget _buildCharts(List<SensorReading> readings, DateTime sessionStartTime) {
+    final List<FlSpot> spo2Spots = readings.map((r) {
+      final time = sessionStartTime.add(Duration(seconds: r.timestamp - readings.first.timestamp));
+      return FlSpot(time.millisecondsSinceEpoch.toDouble(), r.spo2.toDouble());
+    }).toList();
+
+    final List<FlSpot> snoreSpots = readings.map((r) {
+      final time = sessionStartTime.add(Duration(seconds: r.timestamp - readings.first.timestamp));
+      return FlSpot(time.millisecondsSinceEpoch.toDouble(), r.status == 1 ? 1.0 : 0.0);
+    }).toList();
+
+    FlTitlesData buildTitles(bool isSnore) => FlTitlesData(
+      bottomTitles: AxisTitles(
+        sideTitles: SideTitles(
+          showTitles: true,
+          interval: 4 * 60 * 1000,
+          getTitlesWidget: (value, meta) {
+            return Text(DateFormat.Hm().format(DateTime.fromMillisecondsSinceEpoch(value.toInt())));
+          },
+        ),
+      ),
+      leftTitles: AxisTitles(
+        sideTitles: SideTitles(
+          showTitles: true,
+          getTitlesWidget: (value, _) => Text(isSnore ? (value == 1.0 ? 'Yes' : 'No') : '${value.toInt()}'),
+        ),
+      ),
+      rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+      topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+    );
+
+    LineTouchData buildTouchData(Color color, bool isSnore) => LineTouchData(
+      enabled: true,
+      touchCallback: (event, response) {
+        setState(() => _lastTouchInput = event);
+      },
+      touchTooltipData: LineTouchTooltipData(
+        tooltipBgColor: color.withOpacity(0.9),
+        getTooltipItems: (touchedSpots) => touchedSpots.map((spot) {
+          final time = DateFormat.Hm().format(DateTime.fromMillisecondsSinceEpoch(spot.x.toInt()));
+          final value = isSnore ? (spot.y == 1.0 ? 'Snoring' : 'No Snore') : '${spot.y.toInt()}%';
+          return LineTooltipItem('$value\n$time', const TextStyle(color: Colors.white));
+        }).toList(),
+      ),
+    );
+
+    Widget buildChart(List<FlSpot> spots, double minY, double maxY, Color color, bool isSnore) {
+      return LineChart(
+        LineChartData(
+          minY: minY,
+          maxY: maxY,
+          lineBarsData: [
+            LineChartBarData(
+              spots: spots,
+              isCurved: true,
+              color: color,
+              barWidth: 2,
+              dotData: FlDotData(show: false),
+            )
+          ],
+          lineTouchData: buildTouchData(color, isSnore),
+          titlesData: buildTitles(isSnore),
+          gridData: FlGridData(show: true),
+        ),
+      );
     }
-    
-    // Calculate SpO2 statistics
-    double avgSpO2 = 0;
-    int minSpO2 = 100;
-    int maxSpO2 = 0;
-    
-    for (var reading in readings) {
-      avgSpO2 += reading.spo2;
-      if (reading.spo2 < minSpO2) minSpO2 = reading.spo2;
-      if (reading.spo2 > maxSpO2) maxSpO2 = reading.spo2;
-    }
-    
-    avgSpO2 = avgSpO2 / readings.length;
-    
-    // Calculate snoring statistics
-    final snoringCount = readings.where((r) => r.status == AppConstants.statusSnore).length;
-    
+
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Summary', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 16),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildStatRow('Avg SpO₂', '${avgSpO2.toStringAsFixed(1)}%'),
-                  _buildStatRow('Min SpO₂', '$minSpO2%'),
-                  _buildStatRow('Max SpO₂', '$maxSpO2%'),
-                ],
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildStatRow('Snoring %', '${snoringPercentage.toStringAsFixed(1)}%'),
-                  _buildStatRow('Snoring Events', snoringCount.toString()),
-                ],
-              ),
-            ),
-          ],
-        ),
+        const Text('SpO₂', style: TextStyle(fontWeight: FontWeight.bold)),
+        SizedBox(height: 180, child: buildChart(spo2Spots, 70, 100, Colors.green, false)),
+        const SizedBox(height: 32),
+        const Text('Snoring', style: TextStyle(fontWeight: FontWeight.bold)),
+        SizedBox(height: 100, child: buildChart(snoreSpots, 0, 1, Colors.orange, true)),
       ],
-    );
-  }
-
-  Widget _buildChartsSection(List<SensorReading> readings, Sesi session) {
-    if (readings.isEmpty) {
-      return const Center(child: Text('No data available for this session'));
-    }
-
-    // Prepare timestamp to real time conversion
-    final startTime = readings.first.timestamp;
-    final sessionStartDateTime = DateFormat('yyyy-MM-dd HH:mm:ss').parse(
-  '${session.tanggal} ${session.waktuMulai}'
-);
-    
-    // Convert timestamp to device current time for tooltip
-    String timestampToTime(int timestamp) {
-      final secondsFromStart = timestamp - startTime;
-      final currentTime = sessionStartDateTime.add(Duration(seconds: secondsFromStart));
-      return DateFormat('HH:mm:ss').format(currentTime);
-    }
-    
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: GestureDetector(
-        onDoubleTap: () {
-          setState(() {
-            // Reset zoom
-            _minX = 0;
-            _maxX = (readings.last.timestamp - startTime) / 60 + 1;
-          });
-        },
-        child: Column(
-          children: [
-            // SpO2 Chart
-            Expanded(
-              child: Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(12.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('SpO₂', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 8),
-                      Expanded(
-                        child: _buildSpO2Chart(readings, startTime, timestampToTime),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            // Snoring Chart
-            Expanded(
-              child: Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(12.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('Snoring', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 8),
-                      Expanded(
-                        child: _buildSnoringChart(readings, startTime, timestampToTime),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStatRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: TextStyle(color: Colors.grey[600])),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSpO2Chart(List<SensorReading> readings, int startTime, Function timestampToTime) {
-    // Prepare data points
-    final spots = <FlSpot>[];
-    
-    for (var reading in readings) {
-      // X-axis: minutes since start, Y-axis: SpO2 value
-      final timeOffset = (reading.timestamp - startTime) / 60; // Convert seconds to minutes
-      spots.add(FlSpot(timeOffset.toDouble(), reading.spo2.toDouble()));
-    }
-    
-    return LineChart(
-      LineChartData(
-        gridData: FlGridData(show: true),
-        titlesData: FlTitlesData(
-          bottomTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              reservedSize: 30,
-              getTitlesWidget: (value, meta) {
-                return SideTitleWidget(
-                  axisSide: meta.axisSide,
-                  child: Text('${value.toInt()} min'),
-                );
-              },
-              interval: 5,
-            ),
-          ),
-          leftTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              reservedSize: 35,
-              getTitlesWidget: (value, meta) {
-                return SideTitleWidget(
-                  axisSide: meta.axisSide,
-                  child: Text('${value.toInt()}'),
-                );
-              },
-              interval: 5,
-            ),
-          ),
-          topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-        ),
-        borderData: FlBorderData(show: true),
-        minX: _minX,
-        maxX: _maxX,
-        minY: minY1,
-        maxY: maxY1,
-        lineBarsData: [
-          LineChartBarData(
-            spots: spots,
-            isCurved: true,
-            color: Colors.blue,
-            barWidth: 2,
-            isStrokeCapRound: true,
-            dotData: FlDotData(show: false),
-            belowBarData: BarAreaData(show: true, color: Colors.blue.withOpacity(0.2)),
-          ),
-        ],
-        lineTouchData: LineTouchData(
-          touchTooltipData: LineTouchTooltipData(
-            tooltipBgColor: Colors.blueAccent.withOpacity(0.8),
-            getTooltipItems: (touchedSpots) {
-              return touchedSpots.map((touchedSpot) {
-                final minutesFromStart = touchedSpot.x;
-                final secondsFromStart = (minutesFromStart * 60).toInt();
-                final timestamp = startTime + secondsFromStart;
-                final time = timestampToTime(timestamp);
-                
-                return LineTooltipItem(
-                  '${touchedSpot.y.toInt()}%\n$time',
-                  const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                );
-              }).toList();
-            },
-          ),
-        ),
-      ),
-    );
-  }
-  
-  Widget _buildSnoringChart(List<SensorReading> readings, int startTime, Function timestampToTime) {
-    // Prepare data points
-    final spots = <FlSpot>[];
-    
-    for (var reading in readings) {
-      // X-axis: minutes since start, Y-axis: 1 for snoring, 0 for not snoring
-      final timeOffset = (reading.timestamp - startTime) / 60; // Convert seconds to minutes
-      final isSnoring = reading.status == AppConstants.statusSnore ? 1.0 : 0.0;
-      spots.add(FlSpot(timeOffset.toDouble(), isSnoring));
-    }
-    
-    return LineChart(
-      LineChartData(
-        gridData: FlGridData(show: true),
-        titlesData: FlTitlesData(
-          bottomTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              reservedSize: 30,
-              getTitlesWidget: (value, meta) {
-                return SideTitleWidget(
-                  axisSide: meta.axisSide,
-                  child: Text('${value.toInt()} min'),
-                );
-              },
-              interval: 5,
-            ),
-          ),
-          leftTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              reservedSize: 35,
-              getTitlesWidget: (value, meta) {
-                final String label;
-                if (value == 0) {
-                  label = 'No';
-                } else if (value == 1) {
-                  label = 'Yes';
-                } else {
-                  label = '';
-                }
-                return SideTitleWidget(
-                  axisSide: meta.axisSide,
-                  child: Text(label),
-                );
-              },
-              interval: 1,
-            ),
-          ),
-          topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-        ),
-        borderData: FlBorderData(show: true),
-        minX: _minX,
-        maxX: _maxX,
-        minY: minY2,
-        maxY: maxY2,
-        lineBarsData: [
-          LineChartBarData(
-            spots: spots,
-            isCurved: false,
-            color: Colors.orange,
-            barWidth: 2,
-            isStrokeCapRound: true,
-            dotData: FlDotData(show: false),
-            belowBarData: BarAreaData(show: true, color: Colors.orange.withOpacity(0.2)),
-          ),
-        ],
-        lineTouchData: LineTouchData(
-          touchTooltipData: LineTouchTooltipData(
-            tooltipBgColor: Colors.orange.withOpacity(0.8),
-            getTooltipItems: (touchedSpots) {
-              return touchedSpots.map((touchedSpot) {
-                final minutesFromStart = touchedSpot.x;
-                final secondsFromStart = (minutesFromStart * 60).toInt();
-                final timestamp = startTime + secondsFromStart;
-                final time = timestampToTime(timestamp);
-                final status = touchedSpot.y > 0 ? 'Snoring' : 'Not Snoring';
-                
-                return LineTooltipItem(
-                  '$status\n$time',
-                  const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                );
-              }).toList();
-            },
-          ),
-        ),
-      ),
     );
   }
 
