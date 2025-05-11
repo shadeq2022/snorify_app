@@ -201,11 +201,20 @@ class DatabaseHelper {
       'SELECT COUNT(*) FROM ${AppConstants.tableSesi}'
     )) ?? 0;
     
-    // Average SpO2 across all sessions
-    final avgSpO2Result = await db.rawQuery(
-      'SELECT AVG(spo2) as avg_spo2 FROM ${AppConstants.tableSensorReading}'
+    // Get the most recent session ID
+    final recentSessionResult = await db.rawQuery(
+      'SELECT id FROM ${AppConstants.tableSesi} ORDER BY tanggal DESC, waktu_mulai DESC LIMIT 1'
     );
-    final avgSpO2 = avgSpO2Result.first['avg_spo2'] as double? ?? 0.0;
+    
+    double avgSpO2 = 0.0;
+    if (recentSessionResult.isNotEmpty) {
+      final recentSessionId = recentSessionResult.first['id'] as int;
+      final avgSpO2Result = await db.rawQuery(
+        'SELECT AVG(spo2) as avg_spo2 FROM ${AppConstants.tableSensorReading} WHERE sesi_id = ?',
+        [recentSessionId]
+      );
+      avgSpO2 = avgSpO2Result.first['avg_spo2'] as double? ?? 0.0;
+    }
     
     // Total snoring percentage
     final totalReadings = Sqflite.firstIntValue(await db.rawQuery(
