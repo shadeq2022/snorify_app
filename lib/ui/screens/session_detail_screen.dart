@@ -198,7 +198,7 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
         sideTitles: SideTitles(
           showTitles: true,
           reservedSize: 32,
-          interval: 60 * 60 * 1000, // every 30 minutes to reduce overlap
+          interval: 60 * 60 * 1000, // every 60 minutes to reduce overlap
           getTitlesWidget: (value, meta) {
             final label = DateFormat.Hm().format(DateTime.fromMillisecondsSinceEpoch(value.toInt()));
             return SideTitleWidget(
@@ -249,7 +249,7 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
           lineBarsData: [
             LineChartBarData(
               spots: spots,
-              isCurved: false,
+              isCurved: true, 
               color: color,
               barWidth: 2,
               dotData: FlDotData(show: false),
