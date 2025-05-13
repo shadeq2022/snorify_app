@@ -249,7 +249,7 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
           lineBarsData: [
             LineChartBarData(
               spots: spots,
-              isCurved: true,
+              isCurved: false,
               color: color,
               barWidth: 2,
               dotData: FlDotData(show: false),
