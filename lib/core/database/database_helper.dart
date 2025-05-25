@@ -142,28 +142,28 @@ class DatabaseHelper {
     return List.generate(maps.length, (i) => SensorReading.fromMap(maps[i]));
   }
 
-  // Get average SpO2 for a session (excluding stabilization data)
+  // Get average SpO2 for a session (excluding stabilization data and invalid SpO2 < 70)
   Future<double> getAverageSpO2BySesiId(int sesiId) async {
     Database db = await database;
     final result = await db.rawQuery(
-      'SELECT AVG(spo2) as avg_spo2 FROM ${AppConstants.tableSensorReading} WHERE sesi_id = ? AND (stabilizing IS NULL OR stabilizing != 1)',
+      'SELECT AVG(spo2) as avg_spo2 FROM ${AppConstants.tableSensorReading} WHERE sesi_id = ? AND (stabilizing IS NULL OR stabilizing != 1) AND spo2 >= 70',
       [sesiId],
     );
     return result.first['avg_spo2'] as double? ?? 0.0;
   }
 
-  // Get snoring percentage for a session (excluding stabilization data)
+  // Get snoring percentage for a session (excluding stabilization data and invalid SpO2 < 70)
   Future<double> getSnoringPercentageBySesiId(int sesiId) async {
     Database db = await database;
     final totalCount = Sqflite.firstIntValue(await db.rawQuery(
-      'SELECT COUNT(*) FROM ${AppConstants.tableSensorReading} WHERE sesi_id = ? AND (stabilizing IS NULL OR stabilizing != 1)',
+      'SELECT COUNT(*) FROM ${AppConstants.tableSensorReading} WHERE sesi_id = ? AND (stabilizing IS NULL OR stabilizing != 1) AND spo2 >= 70',
       [sesiId],
     )) ?? 0;
     
     if (totalCount == 0) return 0.0;
     
     final snoringCount = Sqflite.firstIntValue(await db.rawQuery(
-      'SELECT COUNT(*) FROM ${AppConstants.tableSensorReading} WHERE sesi_id = ? AND status = ? AND (stabilizing IS NULL OR stabilizing != 1)',
+      'SELECT COUNT(*) FROM ${AppConstants.tableSensorReading} WHERE sesi_id = ? AND status = ? AND (stabilizing IS NULL OR stabilizing != 1) AND spo2 >= 70',
       [sesiId, AppConstants.statusSnore],
     )) ?? 0;
     

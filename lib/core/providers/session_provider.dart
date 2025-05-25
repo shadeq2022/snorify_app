@@ -96,9 +96,9 @@ class SessionProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  // Get filtered readings excluding stabilization periods for statistics
+  // Get filtered readings excluding stabilization periods and invalid SpO2 for statistics
   List<SensorReading> get filteredReadingsForStats {
-    return _currentReadings.where((reading) => reading.stabilizing != 1).toList();
+    return _currentReadings.where((reading) => reading.stabilizing != 1 && reading.spo2 >= 70).toList();
   }
   
   // Add transaction

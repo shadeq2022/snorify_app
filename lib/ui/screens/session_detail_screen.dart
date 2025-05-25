@@ -51,8 +51,8 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
           '${session.tanggal} ${session.waktuMulai}'
         );
 
-        // Hitung statistik SPO2 dan snoring (exclude stabilization data)
-        final filteredReadings = readings.where((r) => r.stabilizing != 1).toList();
+        // Hitung statistik SPO2 dan snoring (exclude stabilization data and invalid SpO2 < 70)
+        final filteredReadings = readings.where((r) => r.stabilizing != 1 && r.spo2 >= 70).toList();
         final spo2Values = filteredReadings.map((r) => r.spo2).toList();
         final avgSpO2 = spo2Values.isNotEmpty ? spo2Values.reduce((a, b) => a + b) / spo2Values.length : 0;
         final minSpO2 = spo2Values.isNotEmpty ? spo2Values.reduce((a, b) => a < b ? a : b) : 0;
