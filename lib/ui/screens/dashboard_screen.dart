@@ -58,7 +58,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
                                     Image.asset(
-                                      'assets/images/no_data.png',
+                                      'assets/images/no_data1.png',
                                       width: 150,
                                       height: 150,
                                     ),
