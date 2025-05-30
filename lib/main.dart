@@ -46,6 +46,7 @@ class MyApp extends StatelessWidget {
     return Consumer<ThemeProvider>(
       builder: (context, themeProvider, _) {
         return MaterialApp(
+          debugShowCheckedModeBanner: false,
           title: AppConstants.appName,
           theme: themeProvider.getLightTheme(),
           darkTheme: themeProvider.getDarkTheme(),

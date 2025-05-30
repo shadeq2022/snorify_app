@@ -4,6 +4,7 @@ class SensorReading {
   final int timestamp; // Unix timestamp
   final int spo2; // SpO2 percentage
   final int status; // 0 = no snore, 1 = snore
+  final int? stabilizing; // 0 = not stabilizing, 1 = stabilizing
 
   SensorReading({
     this.id,
@@ -11,6 +12,7 @@ class SensorReading {
     required this.timestamp,
     required this.spo2,
     required this.status,
+    this.stabilizing,
   });
 
   Map<String, dynamic> toMap() {
@@ -20,6 +22,7 @@ class SensorReading {
       'timestamp': timestamp,
       'spo2': spo2,
       'status': status,
+      if (stabilizing != null) 'stabilizing': stabilizing,
     };
   }
 
@@ -30,6 +33,7 @@ class SensorReading {
       timestamp: map['timestamp'],
       spo2: map['spo2'],
       status: map['status'],
+      stabilizing: map['stabilizing'],
     );
   }
 
@@ -40,6 +44,7 @@ class SensorReading {
       timestamp: json['timestamp'] as int,
       spo2: (double.parse(json['spo2'].toString())).round(),
       status: json['status'] as int,
+      stabilizing: json['stabilizing'] as int?,
     );
   }
 }

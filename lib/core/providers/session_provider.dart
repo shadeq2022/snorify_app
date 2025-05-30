@@ -95,6 +95,11 @@ class SessionProvider with ChangeNotifier {
     _currentReadings.add(reading);
     notifyListeners();
   }
+
+  // Get filtered readings excluding stabilization periods and invalid SpO2 for statistics
+  List<SensorReading> get filteredReadingsForStats {
+    return _currentReadings.where((reading) => reading.stabilizing != 1 && reading.spo2 >= 70).toList();
+  }
   
   // Add transaction
   Future<void> addTransaction(Transaksi transaksi) async {

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -18,8 +19,9 @@ class SessionDetailScreen extends StatefulWidget {
 }
 
 class _SessionDetailScreenState extends State<SessionDetailScreen> {
-  dynamic _lastTouchInput;
-  // Zoom and pan controllers
+  bool _isStabilizing = false;
+  int _stabilizationCountdown = 15;
+  
   @override
   void initState() {
     super.initState();
@@ -49,15 +51,31 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
           '${session.tanggal} ${session.waktuMulai}'
         );
 
-        // Hitung statistik SPO2 dan snoring
-        final spo2Values = readings.map((r) => r.spo2).toList();
+        // Hitung statistik SPO2 dan snoring (exclude stabilization data and invalid SpO2 < 70)
+        final filteredReadings = readings.where((r) => r.stabilizing != 1 && r.spo2 >= 70).toList();
+        final spo2Values = filteredReadings.map((r) => r.spo2).toList();
         final avgSpO2 = spo2Values.isNotEmpty ? spo2Values.reduce((a, b) => a + b) / spo2Values.length : 0;
         final minSpO2 = spo2Values.isNotEmpty ? spo2Values.reduce((a, b) => a < b ? a : b) : 0;
         int dropCount = 0;
         for (int i = 1; i < spo2Values.length; i++) {
           if (spo2Values[i - 1] - spo2Values[i] >= 3) dropCount++;
         }
-        final snoreCount = readings.where((r) => r.status == AppConstants.statusSnore).length;
+        final snoreCount = filteredReadings.where((r) => r.status == AppConstants.statusSnore).length;
+        
+        // Check for current stabilization
+        final isCurrentlyStabilizing = readings.isNotEmpty && readings.last.stabilizing == 1;
+        
+        // Check for stabilization start (when we detect stabilizing = 1 and we weren't already stabilizing)
+        if (isCurrentlyStabilizing && !_isStabilizing) {
+          _isStabilizing = true;
+          _stabilizationCountdown = 15;
+          
+          // Start countdown timer
+          _startStabilizationCountdown();
+        } else if (!isCurrentlyStabilizing && _isStabilizing) {
+          // Stabilization ended
+          _isStabilizing = false;
+        }
         
         return Scaffold(
           appBar: AppBar(
@@ -100,82 +118,87 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
           ),
           body: readings.isEmpty
               ? const Center(child: Text('No data available for this session'))
-              : SingleChildScrollView(
-                  child: Padding(
-                    padding: const EdgeInsets.all(12.0),
-                    child: Column(
-                      children: [
-                        Container(
-                          decoration: BoxDecoration(
-                           gradient: LinearGradient(
-                              colors: isDark
-                                  ? [Colors.grey.shade800, Colors.grey.shade900]
-                                  : [Colors.blue.shade50, Colors.blue.shade100],
-                              begin: Alignment.topLeft,
-                              end: Alignment.centerRight,
+              : Stack(
+                  children: [
+                    SingleChildScrollView(
+                      child: Padding(
+                        padding: const EdgeInsets.all(12.0),
+                        child: Column(
+                          children: [
+                            Container(
+                              decoration: BoxDecoration(
+                               gradient: LinearGradient(
+                                  colors: isDark
+                                      ? [Colors.grey.shade800, Colors.grey.shade900]
+                                      : [Colors.blue.shade50, Colors.blue.shade100],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.centerRight,
+                                ),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Icon(Icons.access_time, size: 16, color: isDark ? Colors.white70 : Colors.grey[700]),
+                                      const SizedBox(width: 4),
+                                      Text('${session.waktuMulai} - ${session.waktuSelesai ?? "Now"}')
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    children: [
+                                      Icon(Icons.timelapse, size: 16, color: isDark ? Colors.white70 : Colors.grey[700]),
+                                      const SizedBox(width: 4),
+                                      Text(session.durasi != null ? '${session.durasi} min' : '-')
+                                    ],
+                                  ),
+                                  const Divider(height: 20),
+                                  Wrap(
+                                    spacing: 18,
+                                    runSpacing: 10,
+                                    alignment: WrapAlignment.center,
+                                    children: [
+                                      Column(
+                                        
+                                        children: [
+                                          const Text("Avg SpO₂", style: TextStyle(fontWeight: FontWeight.bold)),
+                                          Text('${avgSpO2.toStringAsFixed(1)}%')
+                                        ],
+                                      ),
+                                      Column(                                    
+                                        children: [
+                                          const Text("Min SpO₂", style: TextStyle(fontWeight: FontWeight.bold)),
+                                          Text('$minSpO2%')
+                                        ],
+                                      ),
+                                      Column(                                    
+                                        children: [
+                                          const Text("Drops ≥3%", style: TextStyle(fontWeight: FontWeight.bold)),
+                                          Text('$dropCount')
+                                        ],
+                                      ),
+                                      Column(                                    
+                                        children: [
+                                          const Text("Snore", style: TextStyle(fontWeight: FontWeight.bold)),
+                                          Text('$snoreCount')
+                                        ],
+                                      ),
+                                    ],
+                                  )
+                                ],
+                              ),
                             ),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Icon(Icons.access_time, size: 16, color: isDark ? Colors.white70 : Colors.grey[700]),
-                                  const SizedBox(width: 4),
-                                  Text('${session.waktuMulai} - ${session.waktuSelesai ?? "Now"}')
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              Row(
-                                children: [
-                                  Icon(Icons.timelapse, size: 16, color: isDark ? Colors.white70 : Colors.grey[700]),
-                                  const SizedBox(width: 4),
-                                  Text(session.durasi != null ? '${session.durasi} min' : '-')
-                                ],
-                              ),
-                              const Divider(height: 20),
-                              Wrap(
-                                spacing: 18,
-                                runSpacing: 10,
-                                alignment: WrapAlignment.center,
-                                children: [
-                                  Column(
-                                    
-                                    children: [
-                                      const Text("Avg SpO₂", style: TextStyle(fontWeight: FontWeight.bold)),
-                                      Text('${avgSpO2.toStringAsFixed(1)}%')
-                                    ],
-                                  ),
-                                  Column(                                    
-                                    children: [
-                                      const Text("Min SpO₂", style: TextStyle(fontWeight: FontWeight.bold)),
-                                      Text('$minSpO2%')
-                                    ],
-                                  ),
-                                  Column(                                    
-                                    children: [
-                                      const Text("Drops ≥3%", style: TextStyle(fontWeight: FontWeight.bold)),
-                                      Text('$dropCount')
-                                    ],
-                                  ),
-                                  Column(                                    
-                                    children: [
-                                      const Text("Snore", style: TextStyle(fontWeight: FontWeight.bold)),
-                                      Text('$snoreCount')
-                                    ],
-                                  ),
-                                ],
-                              )
-                            ],
-                          ),
+                            const SizedBox(height: 16),
+                            _buildCharts(readings, sessionStart)
+                          ],
                         ),
-                        const SizedBox(height: 16),
-                        _buildCharts(readings, sessionStart)
-                      ],
+                      ),
                     ),
-                  ),
+                    _buildStabilizationOverlay(),
+                  ],
                 ),
         );
       },
@@ -183,12 +206,20 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
   }
 
   Widget _buildCharts(List<SensorReading> readings, DateTime sessionStartTime) {
-    final List<FlSpot> spo2Spots = readings.map((r) {
+    // Filter readings for SpO2 chart: exclude stabilization data and invalid readings (< 70 or > 100)
+    final validSpo2Readings = readings.where((r) => 
+      r.stabilizing != 1 && r.spo2 >= 70 && r.spo2 <= 100
+    ).toList();
+    
+    // For snoring chart, include all readings except stabilization
+    final validSnoreReadings = readings.where((r) => r.stabilizing != 1).toList();
+    
+    final List<FlSpot> spo2Spots = validSpo2Readings.map((r) {
       final time = sessionStartTime.add(Duration(seconds: r.timestamp - readings.first.timestamp));
       return FlSpot(time.millisecondsSinceEpoch.toDouble(), r.spo2.toDouble());
     }).toList();
 
-    final List<FlSpot> snoreSpots = readings.map((r) {
+    final List<FlSpot> snoreSpots = validSnoreReadings.map((r) {
       final time = sessionStartTime.add(Duration(seconds: r.timestamp - readings.first.timestamp));
       return FlSpot(time.millisecondsSinceEpoch.toDouble(), r.status == 1 ? 1.0 : 0.0);
     }).toList();
@@ -228,9 +259,6 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
 
     LineTouchData buildTouchData(Color color, bool isSnore) => LineTouchData(
       enabled: true,
-      touchCallback: (event, response) {
-        setState(() => _lastTouchInput = event);
-      },
       touchTooltipData: LineTouchTooltipData(
         tooltipBgColor: color.withOpacity(0.9),
         getTooltipItems: (touchedSpots) => touchedSpots.map((spot) {
@@ -286,6 +314,80 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
         const Text('Snoring', style: TextStyle(fontWeight: FontWeight.bold)),
         SizedBox(height: 100, child: buildChart(snoreSpots, 0, 1, Colors.orange, true)),
       ],
+    );
+  }
+
+  void _startStabilizationCountdown() {
+    if (!mounted) return;
+    
+    Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted || !_isStabilizing) {
+        timer.cancel();
+        return;
+      }
+      
+      setState(() {
+        _stabilizationCountdown--;
+      });
+      
+      if (_stabilizationCountdown <= 0) {
+        timer.cancel();
+      }
+    });
+  }
+
+  Widget _buildStabilizationOverlay() {
+    if (!_isStabilizing) return const SizedBox.shrink();
+    
+    return Positioned.fill(
+      child: Container(
+        color: Colors.black54,
+        child: Center(
+          child: Card(
+            margin: const EdgeInsets.all(32),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.sensors,
+                    size: 48,
+                    color: Colors.orange,
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Sensor Stabilizing',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Please keep your finger steady',
+                    style: TextStyle(fontSize: 16),
+                  ),
+                  const SizedBox(height: 16),
+                  CircularProgressIndicator(
+                    value: (15 - _stabilizationCountdown) / 15,
+                    backgroundColor: Colors.grey[300],
+                    valueColor: const AlwaysStoppedAnimation<Color>(Colors.orange),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '${_stabilizationCountdown}s',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 

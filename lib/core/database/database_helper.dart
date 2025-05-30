@@ -53,6 +53,7 @@ class DatabaseHelper {
         timestamp INTEGER NOT NULL,
         spo2 INTEGER NOT NULL,
         status INTEGER NOT NULL,
+        stabilizing INTEGER,
         FOREIGN KEY (sesi_id) REFERENCES ${AppConstants.tableSesi} (id) ON DELETE CASCADE
       )
     ''');
@@ -73,7 +74,10 @@ class DatabaseHelper {
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
     // Handle database migrations here
     if (oldVersion < 2) {
-      // Add migrations for version 2
+      // Add stabilizing column to sensor_reading table
+      await db.execute('''
+        ALTER TABLE ${AppConstants.tableSensorReading} ADD COLUMN stabilizing INTEGER
+      ''');
     }
   }
 
@@ -138,28 +142,28 @@ class DatabaseHelper {
     return List.generate(maps.length, (i) => SensorReading.fromMap(maps[i]));
   }
 
-  // Get average SpO2 for a session
+  // Get average SpO2 for a session (excluding stabilization data and invalid SpO2 < 70)
   Future<double> getAverageSpO2BySesiId(int sesiId) async {
     Database db = await database;
     final result = await db.rawQuery(
-      'SELECT AVG(spo2) as avg_spo2 FROM ${AppConstants.tableSensorReading} WHERE sesi_id = ?',
+      'SELECT AVG(spo2) as avg_spo2 FROM ${AppConstants.tableSensorReading} WHERE sesi_id = ? AND (stabilizing IS NULL OR stabilizing != 1) AND spo2 >= 70',
       [sesiId],
     );
     return result.first['avg_spo2'] as double? ?? 0.0;
   }
 
-  // Get snoring percentage for a session
+  // Get snoring percentage for a session (excluding stabilization data and invalid SpO2 < 70)
   Future<double> getSnoringPercentageBySesiId(int sesiId) async {
     Database db = await database;
     final totalCount = Sqflite.firstIntValue(await db.rawQuery(
-      'SELECT COUNT(*) FROM ${AppConstants.tableSensorReading} WHERE sesi_id = ?',
+      'SELECT COUNT(*) FROM ${AppConstants.tableSensorReading} WHERE sesi_id = ? AND (stabilizing IS NULL OR stabilizing != 1) AND spo2 >= 70',
       [sesiId],
     )) ?? 0;
     
     if (totalCount == 0) return 0.0;
     
     final snoringCount = Sqflite.firstIntValue(await db.rawQuery(
-      'SELECT COUNT(*) FROM ${AppConstants.tableSensorReading} WHERE sesi_id = ? AND status = ?',
+      'SELECT COUNT(*) FROM ${AppConstants.tableSensorReading} WHERE sesi_id = ? AND status = ? AND (stabilizing IS NULL OR stabilizing != 1) AND spo2 >= 70',
       [sesiId, AppConstants.statusSnore],
     )) ?? 0;
     

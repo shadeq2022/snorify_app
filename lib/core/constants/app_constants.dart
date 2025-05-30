@@ -11,7 +11,7 @@ class AppConstants {
   
   // Database related constants
   static const String dbName = 'snorify.db';
-  static const int dbVersion = 1;
+  static const int dbVersion = 2;
   
   // Table names
   static const String tableSesi = 'sesi';
