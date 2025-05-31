@@ -8,10 +8,9 @@ class AppConstants {
   // BLE related constants
   // static const String deviceNamePrefix = 'ESP32'; // Prefix for ESP32C3 devices
   static const String esp32ServiceUuid = '12345678-1234-5678-1234-56789abcdef0';
-  
-  // Database related constants
+    // Database related constants
   static const String dbName = 'snorify.db';
-  static const int dbVersion = 2;
+  static const int dbVersion = 3;
   
   // Table names
   static const String tableSesi = 'sesi';

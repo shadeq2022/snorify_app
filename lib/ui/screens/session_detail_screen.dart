@@ -54,8 +54,8 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
         // Hitung statistik SPO2 dan snoring (exclude stabilization data and invalid SpO2 < 70)
         final filteredReadings = readings.where((r) => r.stabilizing != 1 && r.spo2 >= 70).toList();
         final spo2Values = filteredReadings.map((r) => r.spo2).toList();
-        final avgSpO2 = spo2Values.isNotEmpty ? spo2Values.reduce((a, b) => a + b) / spo2Values.length : 0;
-        final minSpO2 = spo2Values.isNotEmpty ? spo2Values.reduce((a, b) => a < b ? a : b) : 0;
+        final avgSpO2 = spo2Values.isNotEmpty ? spo2Values.reduce((a, b) => a + b) / spo2Values.length : 0.0;
+        final minSpO2 = spo2Values.isNotEmpty ? spo2Values.reduce((a, b) => a < b ? a : b) : 0.0;
         int dropCount = 0;
         for (int i = 1; i < spo2Values.length; i++) {
           if (spo2Values[i - 1] - spo2Values[i] >= 3) dropCount++;
@@ -171,7 +171,7 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
                                       Column(                                    
                                         children: [
                                           const Text("Min SpO₂", style: TextStyle(fontWeight: FontWeight.bold)),
-                                          Text('$minSpO2%')
+                                          Text('${minSpO2.toStringAsFixed(1)}%')
                                         ],
                                       ),
                                       Column(                                    
@@ -263,7 +263,7 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
         tooltipBgColor: color.withOpacity(0.9),
         getTooltipItems: (touchedSpots) => touchedSpots.map((spot) {
           final time = DateFormat.Hm().format(DateTime.fromMillisecondsSinceEpoch(spot.x.toInt()));
-          final value = isSnore ? (spot.y == 1.0 ? 'Snoring' : 'No Snore') : '${spot.y.toInt()}%';
+          final value = isSnore ? (spot.y == 1.0 ? 'Snoring' : 'No Snore') : '${spot.y.toStringAsFixed(1)}%';
           return LineTooltipItem('$value\n$time', const TextStyle(color: Colors.white));
         }).toList(),
       ),

@@ -43,15 +43,13 @@ class DatabaseHelper {
         device_id TEXT,
         catatan TEXT
       )
-    ''');
-
-    // Create Sensor Reading table
+    ''');    // Create Sensor Reading table
     await db.execute('''
       CREATE TABLE ${AppConstants.tableSensorReading} (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         sesi_id INTEGER NOT NULL,
         timestamp INTEGER NOT NULL,
-        spo2 INTEGER NOT NULL,
+        spo2 REAL NOT NULL,
         status INTEGER NOT NULL,
         stabilizing INTEGER,
         FOREIGN KEY (sesi_id) REFERENCES ${AppConstants.tableSesi} (id) ON DELETE CASCADE
@@ -70,7 +68,6 @@ class DatabaseHelper {
       )
     ''');
   }
-
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
     // Handle database migrations here
     if (oldVersion < 2) {
@@ -78,6 +75,33 @@ class DatabaseHelper {
       await db.execute('''
         ALTER TABLE ${AppConstants.tableSensorReading} ADD COLUMN stabilizing INTEGER
       ''');
+    }
+    
+    if (oldVersion < 3) {
+      // Change spo2 column from INTEGER to REAL for better precision
+      // SQLite doesn't support ALTER COLUMN, so we need to recreate the table
+      await db.execute('''
+        CREATE TABLE ${AppConstants.tableSensorReading}_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          sesi_id INTEGER NOT NULL,
+          timestamp INTEGER NOT NULL,
+          spo2 REAL NOT NULL,
+          status INTEGER NOT NULL,
+          stabilizing INTEGER,
+          FOREIGN KEY (sesi_id) REFERENCES ${AppConstants.tableSesi} (id) ON DELETE CASCADE
+        )
+      ''');
+      
+      // Copy data from old table to new table
+      await db.execute('''
+        INSERT INTO ${AppConstants.tableSensorReading}_new (id, sesi_id, timestamp, spo2, status, stabilizing)
+        SELECT id, sesi_id, timestamp, CAST(spo2 AS REAL), status, stabilizing
+        FROM ${AppConstants.tableSensorReading}
+      ''');
+      
+      // Drop old table and rename new table
+      await db.execute('DROP TABLE ${AppConstants.tableSensorReading}');
+      await db.execute('ALTER TABLE ${AppConstants.tableSensorReading}_new RENAME TO ${AppConstants.tableSensorReading}');
     }
   }
 

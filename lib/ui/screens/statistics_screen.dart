@@ -8,7 +8,6 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
-import 'dart:math';
 
 import 'package:snorify_app/core/constants/app_constants.dart';
 import 'package:snorify_app/core/models/sesi.dart';
@@ -151,11 +150,10 @@ class _StatisticsScreenState extends State<StatisticsScreen> with SingleTickerPr
     if (readings.isEmpty) {
       return const Center(child: Text('No SpO₂ data available for this session'));
     }
-    
-    // Calculate statistics
+      // Calculate statistics
     final avgSpO2 = sessionProvider.averageSpO2;
-    int minSpO2 = 100;
-    int maxSpO2 = 0;
+    double minSpO2 = 100.0;
+    double maxSpO2 = 0.0;
     int belowNormalCount = 0;
     
     for (var reading in readings) {
@@ -180,10 +178,9 @@ class _StatisticsScreenState extends State<StatisticsScreen> with SingleTickerPr
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text('SpO₂ Statistics', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 16),
-                  _buildStatRow('Average SpO₂', '${avgSpO2.toStringAsFixed(1)}%'),
-                  _buildStatRow('Minimum SpO₂', '$minSpO2%'),
-                  _buildStatRow('Maximum SpO₂', '$maxSpO2%'),
+                  const SizedBox(height: 16),                  _buildStatRow('Average SpO₂', '${avgSpO2.toStringAsFixed(1)}%'),
+                  _buildStatRow('Minimum SpO₂', '${minSpO2.toStringAsFixed(1)}%'),
+                  _buildStatRow('Maximum SpO₂', '${maxSpO2.toStringAsFixed(1)}%'),
                   _buildStatRow('Below Normal', '$belowNormalPercentage% of time'),
                 ],
               ),
