@@ -1,8 +1,14 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:snorify_app/core/constants/app_constants.dart';
 import 'package:snorify_app/core/models/sesi.dart';
 import 'package:snorify_app/core/models/sensor_reading.dart';
@@ -136,18 +142,25 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
                                 ),
                                 borderRadius: BorderRadius.circular(12),
                               ),
-                              padding: const EdgeInsets.all(16),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
+                              padding: const EdgeInsets.all(10),                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,                                children: [                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                     children: [
-                                      Icon(Icons.access_time, size: 16, color: isDark ? Colors.white70 : Colors.grey[700]),
-                                      const SizedBox(width: 4),
-                                      Text('${session.waktuMulai} - ${session.waktuSelesai ?? "Now"}')
-                                    ],
+                                      Row(
+                                        children: [
+                                          Icon(Icons.access_time, size: 16, color: isDark ? Colors.white70 : Colors.grey[700]),
+                                          const SizedBox(width: 4),
+                                          Text('${session.waktuMulai} - ${session.waktuSelesai ?? "Now"}')
+                                        ],
+                                      ),                                      IconButton(
+                                        onPressed: () => _shareSessionReport(context, session, readings),
+                                        icon: const Icon(Icons.share, size: 20),
+                                        tooltip: 'Share',
+                                        padding: EdgeInsets.zero,
+                                        constraints: const BoxConstraints(),
+                                      ),                                    ],
                                   ),
-                                  const SizedBox(height: 8),
+                                  
                                   Row(
                                     children: [
                                       Icon(Icons.timelapse, size: 16, color: isDark ? Colors.white70 : Colors.grey[700]),
@@ -188,11 +201,8 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
                                       ),
                                     ],
                                   )
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            _buildCharts(readings, sessionStart)
+                                ],                              ),                            ),                            const SizedBox(height: 8),
+                            _buildCharts(readings, sessionStart),
                           ],
                         ),
                       ),
@@ -304,13 +314,24 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
             : ExtraLinesData(),
         ),
       );
-    }
-
-    return Column(
-      children: [
-        const Text('SpO₂', style: TextStyle(fontWeight: FontWeight.bold)),
+    }    return Column(
+      children: [        // SpO2 Chart Header with Info Icon
+        Row(
+          children: [
+            const Expanded(flex: 3, child: SizedBox()), // Left spacer
+            const Text('SpO₂', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Expanded(flex: 2, child: SizedBox()), // Center spacer  
+            IconButton(
+              icon: const Icon(Icons.info_outline, size: 20),
+              onPressed: () => _showSpO2DistributionPopup(context, readings),
+              tooltip: 'SpO2 Distribution',
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+            ),
+          ],
+        ),
         SizedBox(height: 180, child: buildChart(spo2Spots, 70, 100, Colors.green, false)),
-        const SizedBox(height: 32),
+        const SizedBox(height: 28),
         const Text('Snoring', style: TextStyle(fontWeight: FontWeight.bold)),
         SizedBox(height: 100, child: buildChart(snoreSpots, 0, 1, Colors.orange, true)),
       ],
@@ -518,10 +539,193 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
     
     // Disconnect from device
     bleProvider.disconnect();
-    
-    if (mounted) {
+      if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Session ended successfully')),
+      );
+    }  }
+
+  void _showSpO2DistributionPopup(BuildContext context, List<SensorReading> readings) {
+    final validReadings = readings.where((r) => r.stabilizing != 1 && r.spo2 >= 70 && r.spo2 <= 100).toList();
+    
+    if (validReadings.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No valid SpO2 data available')),
+      );
+      return;
+    }
+
+    // Calculate SpO2 distribution
+    Map<String, double> spo2Distribution = {
+      '100% - 94%': 0,
+      '93% - 88%': 0, 
+      '87% - 80%': 0,
+      '79% - 70%': 0,
+    };
+
+    final totalDuration = validReadings.length; // in seconds
+    
+    for (var reading in validReadings) {
+      if (reading.spo2 >= 94) {
+        spo2Distribution['100% - 94%'] = spo2Distribution['100% - 94%']! + 1;
+      } else if (reading.spo2 >= 88) {
+        spo2Distribution['93% - 88%'] = spo2Distribution['93% - 88%']! + 1;
+      } else if (reading.spo2 >= 80) {
+        spo2Distribution['87% - 80%'] = spo2Distribution['87% - 80%']! + 1;
+      } else {
+        spo2Distribution['79% - 70%'] = spo2Distribution['79% - 70%']! + 1;
+      }
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          constraints: const BoxConstraints(maxWidth: 400, maxHeight: 400),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'SpO2 Distribution',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),              const SizedBox(height: 16),              Table(
+                border: TableBorder.all(color: Colors.green[300]!),
+                columnWidths: const {
+                  0: FlexColumnWidth(1.7),
+                  1: FlexColumnWidth(1),
+                  2: FlexColumnWidth(1),
+                },
+                children: [
+                  TableRow(
+                    decoration: BoxDecoration(color: Colors.lightGreen[100]),
+                    children: const [
+                      Padding(
+                        padding: EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+                        child: Text('SpO2 Range', style: TextStyle(fontWeight: FontWeight.bold)),
+                      ),
+                      Padding(
+                        padding: EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+                        child: Text('Min.', style: TextStyle(fontWeight: FontWeight.bold)),
+                      ),
+                      Padding(
+                        padding: EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+                        child: Text('% time', style: TextStyle(fontWeight: FontWeight.bold)),
+                      ),
+                    ],
+                  ),
+                  ...spo2Distribution.entries.map((entry) {
+                    final minutes = (entry.value / 60).toStringAsFixed(1);
+                    final percentage = totalDuration > 0 
+                        ? (entry.value / totalDuration * 100).toStringAsFixed(1)
+                        : '0.0';
+                    return TableRow(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+                          child: Text(entry.key),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+                          child: Text(minutes),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+                          child: Text(percentage),
+                        ),
+                      ],
+                    );
+                  }).toList(),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),    );
+  }
+
+  Future<void> _shareSessionReport(BuildContext context, Sesi session, List<SensorReading> readings) async {
+    try {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Preparing report to share...')),
+      );
+      
+      final pdf = pw.Document();
+      
+      // Calculate statistics (same as above)
+      final validReadings = readings.where((r) => r.stabilizing != 1 && r.spo2 >= 70).toList();
+      final spo2Values = validReadings.map((r) => r.spo2).toList();
+      final avgSpO2 = spo2Values.isNotEmpty ? spo2Values.reduce((a, b) => a + b) / spo2Values.length : 0.0;
+      final minSpO2 = spo2Values.isNotEmpty ? spo2Values.reduce((a, b) => a < b ? a : b) : 0.0;
+      final maxSpO2 = spo2Values.isNotEmpty ? spo2Values.reduce((a, b) => a > b ? a : b) : 0.0;
+      
+      int dropCount = 0;
+      for (int i = 1; i < spo2Values.length; i++) {
+        if (spo2Values[i - 1] - spo2Values[i] >= 3) dropCount++;
+      }
+      final snoreCount = validReadings.where((r) => r.status == AppConstants.statusSnore).length;
+      
+      // Create PDF content (same structure as above)
+      pdf.addPage(
+        pw.Page(
+          pageFormat: PdfPageFormat.a4.landscape,
+          build: (pw.Context context) {
+            return pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Header(
+                  level: 0,
+                  child: pw.Text(
+                    'Snorify Session Report',
+                    style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold),
+                  ),
+                ),
+                pw.SizedBox(height: 20),
+                pw.Text('Session: ${session.nama}'),
+                pw.Text('Date: ${session.tanggal}'),
+                pw.Text('Time: ${session.waktuMulai} - ${session.waktuSelesai ?? "Ongoing"}'),
+                pw.Text('Duration: ${session.durasi ?? 0} minutes'),
+                pw.SizedBox(height: 20),
+                pw.Text('Summary:', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                pw.Text('Average SpO₂: ${avgSpO2.toStringAsFixed(1)}%'),
+                pw.Text('Minimum SpO₂: ${minSpO2.toStringAsFixed(1)}%'),
+                pw.Text('Maximum SpO₂: ${maxSpO2.toStringAsFixed(1)}%'),
+                pw.Text('SpO₂ Drops ≥3%: $dropCount'),
+                pw.Text('Snore Events: $snoreCount'),
+              ],
+            );
+          },
+        ),
+      );
+      
+      // Save PDF to temporary file
+      final output = await getTemporaryDirectory();
+      final file = File('${output.path}/Snorify_${session.nama}_${session.tanggal}.pdf');
+      await file.writeAsBytes(await pdf.save());
+      
+      // Share the file
+      await Share.shareXFiles(
+        [XFile(file.path)],
+        text: 'Snorify Session Report - ${session.nama}',
+        subject: 'Sleep Monitoring Report',
+      );
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Report shared successfully')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error sharing report: $e')),
       );
     }
   }

@@ -1,11 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:snorify_app/core/constants/app_constants.dart';
-import 'package:snorify_app/core/providers/ble_provider.dart';
-import 'package:snorify_app/core/providers/session_provider.dart';
 import 'package:snorify_app/ui/screens/dashboard_screen.dart';
 import 'package:snorify_app/ui/screens/add_session_screen.dart';
-import 'package:snorify_app/ui/screens/statistics_screen.dart';
 import 'package:snorify_app/ui/screens/settings_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -22,7 +18,6 @@ class _HomeScreenState extends State<HomeScreen> {
   final List<Widget> _screens = [
     const DashboardScreen(),
     const AddSessionScreen(),
-    const StatisticsScreen(),
     const SettingsScreen(),
   ];
   
@@ -43,8 +38,7 @@ class _HomeScreenState extends State<HomeScreen> {
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
         currentIndex: _selectedIndex,
-        onTap: _onItemTapped,
-        items: const [
+        onTap: _onItemTapped,        items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.dashboard),
             label: 'Dashboard',
@@ -52,10 +46,6 @@ class _HomeScreenState extends State<HomeScreen> {
           BottomNavigationBarItem(
             icon: Icon(Icons.add_circle_outline),
             label: 'Add Session',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.bar_chart),
-            label: 'Statistics',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.settings),
