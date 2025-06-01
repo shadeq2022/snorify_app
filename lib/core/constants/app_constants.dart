@@ -30,8 +30,8 @@ class AppConstants {
   static const int spo2Normal = 95; // 95-100% is normal
   static const int spo2Warning = 90; // 90-94% is warning
   // Below 90% is danger
-  
-  // Routes
+    // Routes
+  static const String routeLoading = '/loading';
   static const String routeOnboarding = '/onboarding';
   static const String routeHome = '/home';
   static const String routeAddSession = '/add-session';
