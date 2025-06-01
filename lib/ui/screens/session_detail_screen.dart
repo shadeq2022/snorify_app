@@ -26,7 +26,7 @@ class SessionDetailScreen extends StatefulWidget {
 
 class _SessionDetailScreenState extends State<SessionDetailScreen> {
   bool _isStabilizing = false;
-  int _stabilizationCountdown = 15;
+  int _stabilizationCountdown = 20;
   
   @override
   void initState() {
@@ -70,11 +70,10 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
         
         // Check for current stabilization
         final isCurrentlyStabilizing = readings.isNotEmpty && readings.last.stabilizing == 1;
-        
-        // Check for stabilization start (when we detect stabilizing = 1 and we weren't already stabilizing)
+          // Check for stabilization start (when we detect stabilizing = 1 and we weren't already stabilizing)
         if (isCurrentlyStabilizing && !_isStabilizing) {
           _isStabilizing = true;
-          _stabilizationCountdown = 15;
+          _stabilizationCountdown = 20;
           
           // Start countdown timer
           _startStabilizationCountdown();
@@ -213,33 +212,34 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
         );
       },
     );
-  }
-
-  Widget _buildCharts(List<SensorReading> readings, DateTime sessionStartTime) {
-    // Filter readings for SpO2 chart: exclude stabilization data and invalid readings (< 70 or > 100)
+  }  Widget _buildCharts(List<SensorReading> readings, DateTime sessionStartTime) {
+    // Use the very first reading's timestamp as reference for both charts to start at the same time
+    final referenceTimestamp = readings.isNotEmpty ? readings.first.timestamp : 0;
+    
+    // Filter readings for snoring chart: exclude stabilization data only
+    final validSnoreReadings = readings.where((r) => r.stabilizing != 1).toList();
+    
+    // Filter readings for SpO2 chart: exclude stabilization AND invalid readings (< 70 or > 100)
+    // But still use the same reference timestamp as snoring
     final validSpo2Readings = readings.where((r) => 
       r.stabilizing != 1 && r.spo2 >= 70 && r.spo2 <= 100
     ).toList();
     
-    // For snoring chart, include all readings except stabilization
-    final validSnoreReadings = readings.where((r) => r.stabilizing != 1).toList();
-    
     final List<FlSpot> spo2Spots = validSpo2Readings.map((r) {
-      final time = sessionStartTime.add(Duration(seconds: r.timestamp - readings.first.timestamp));
+      final time = sessionStartTime.add(Duration(seconds: r.timestamp - referenceTimestamp));
       return FlSpot(time.millisecondsSinceEpoch.toDouble(), r.spo2.toDouble());
     }).toList();
 
     final List<FlSpot> snoreSpots = validSnoreReadings.map((r) {
-      final time = sessionStartTime.add(Duration(seconds: r.timestamp - readings.first.timestamp));
+      final time = sessionStartTime.add(Duration(seconds: r.timestamp - referenceTimestamp));
       return FlSpot(time.millisecondsSinceEpoch.toDouble(), r.status == 1 ? 1.0 : 0.0);
     }).toList();
 
     FlTitlesData buildTitles(bool isSnore) => FlTitlesData(
-      bottomTitles: AxisTitles(
-        sideTitles: SideTitles(
+      bottomTitles: AxisTitles(        sideTitles: SideTitles(
           showTitles: true,
           reservedSize: 32,
-          interval: 60 * 60 * 1000, // every 60 minutes to reduce overlap
+          interval: 10 * 60 * 1000, // every 2 minutes to reduce overlap
           getTitlesWidget: (value, meta) {
             final label = DateFormat.Hm().format(DateTime.fromMillisecondsSinceEpoch(value.toInt()));
             return SideTitleWidget(
@@ -277,13 +277,26 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
           return LineTooltipItem('$value\n$time', const TextStyle(color: Colors.white));
         }).toList(),
       ),
-    );
-
-    Widget buildChart(List<FlSpot> spots, double minY, double maxY, Color color, bool isSnore) {
+    );    Widget buildChart(List<FlSpot> spots, double minY, double maxY, Color color, bool isSnore) {
+      // For SpO2 chart, we need to ensure the timeline starts from the beginning
+      // even if there's no data initially (during stabilization)
+      double? chartMinX, chartMaxX;
+      
+      if (!isSnore && snoreSpots.isNotEmpty) {
+        // For SpO2 chart, use the same X-axis range as snoring chart
+        chartMinX = snoreSpots.first.x;
+        chartMaxX = snoreSpots.last.x;
+      } else if (spots.isNotEmpty) {
+        chartMinX = spots.first.x;
+        chartMaxX = spots.last.x;
+      }
+      
       return LineChart(
         LineChartData(
           minY: minY,
           maxY: maxY,
+          minX: chartMinX,
+          maxX: chartMaxX,
           lineBarsData: [
             LineChartBarData(
               spots: spots,
@@ -314,7 +327,7 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
             : ExtraLinesData(),
         ),
       );
-    }    return Column(
+    }return Column(
       children: [        // SpO2 Chart Header with Info Icon
         Row(
           children: [
@@ -388,10 +401,9 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
                   const Text(
                     'Please keep your finger steady',
                     style: TextStyle(fontSize: 16),
-                  ),
-                  const SizedBox(height: 16),
+                  ),                  const SizedBox(height: 16),
                   CircularProgressIndicator(
-                    value: (15 - _stabilizationCountdown) / 15,
+                    value: (20 - _stabilizationCountdown) / 20,
                     backgroundColor: Colors.grey[300],
                     valueColor: const AlwaysStoppedAnimation<Color>(Colors.orange),
                   ),
