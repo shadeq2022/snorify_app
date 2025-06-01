@@ -12,12 +12,11 @@ class SettingsScreen extends StatefulWidget {
   State<SettingsScreen> createState() => _SettingsScreenState();
 }
 
-class _SettingsScreenState extends State<SettingsScreen> {
-  @override
+class _SettingsScreenState extends State<SettingsScreen> {  @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(16.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -96,7 +95,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ],
     );
   }
-
   Widget _buildAboutSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -105,8 +103,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           'About',
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
-        const SizedBox(height: 16),
-        ListTile(
+        const SizedBox(height: 16),        ListTile(
           leading: const Icon(Icons.info_outline),
           title: const Text('App Version'),
           subtitle: Text(AppConstants.appVersion),
@@ -114,7 +111,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ],
     );
   }
-
   String _getThemeModeText(ThemeMode mode) {
     switch (mode) {
       case ThemeMode.system:
@@ -123,8 +119,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
         return 'Light';
       case ThemeMode.dark:
         return 'Dark';
-      default:
-        return 'System Default';
     }
   }
 
@@ -241,9 +235,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         const SnackBar(content: Text('All data has been cleared')),
       );
     }
-  }
-
-  Future<void> _resetOnboarding(BuildContext context) async {
+  }  Future<void> _resetOnboarding(BuildContext context) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('onboarding_completed', false);
     
