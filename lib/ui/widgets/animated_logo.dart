@@ -11,7 +11,7 @@ class AnimatedLogo extends StatefulWidget {
   State<AnimatedLogo> createState() => _AnimatedLogoState();
 }
 
-class _AnimatedLogoState extends State<AnimatedLogo> with SingleTickerProviderStateMixin {
+class _AnimatedLogoState extends State<AnimatedLogo> with TickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _line1Animation;
   late Animation<double> _line2Animation;
@@ -19,33 +19,50 @@ class _AnimatedLogoState extends State<AnimatedLogo> with SingleTickerProviderSt
   @override
   void initState() {
     super.initState();
-    // 1. Membuat AnimationController sebagai "timer" utama untuk animasi
+    _initializeAnimations();
+  }
+
+  void _initializeAnimations() {
+    // 1. Membuat AnimationController dengan posisi awal 0.0
     _controller = AnimationController(
-      // Durasi total untuk kedua animasi selesai, termasuk jeda
-      duration: const Duration(milliseconds: 1800),
+      duration: const Duration(milliseconds: 3000),
       vsync: this,
     );
 
+    // PENTING: Reset controller ke posisi 0 untuk memastikan animasi dimulai dari awal
+    _controller.reset();
+
     // 2. Membuat animasi spesifik untuk GARIS PERTAMA (hijau)
-    //    Animasi ini berjalan dari 0% hingga 83% dari durasi controller (sekitar 1.5 detik)
     _line1Animation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _controller,
-        curve: const Interval(0.0, 0.83, curve: Curves.easeOut),
+        curve: const Interval(0.0, 0.8, curve: Curves.easeOut),
       ),
-    );
-
-    // 3. Membuat animasi spesifik untuk GARIS KEDUA (oranye)
-    //    Animasi ini dimulai setelah 16% durasi controller (delay 0.3 detik) dan berjalan sampai akhir
+    );    // 3. Membuat animasi spesifik untuk GARIS KEDUA (oranye)
+    // Animasi dimulai lebih cepat di 15% dan selesai di 100% durasi total
     _line2Animation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _controller,
-        curve: const Interval(0.16, 1.0, curve: Curves.easeOut),
+        curve: const Interval(0.07, 1.0, curve: Curves.easeOut),
       ),
     );
 
-    // 4. Memulai seluruh animasi
-    _controller.forward();
+    // 4. Pastikan animasi dimulai dari awal dengan delay kecil
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _controller.reset();
+        _controller.forward();
+      }
+    });  }
+
+  @override
+  void didUpdateWidget(AnimatedLogo oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Reset animasi jika widget di-update
+    if (mounted) {
+      _controller.reset();
+      _controller.forward();
+    }
   }
 
   @override

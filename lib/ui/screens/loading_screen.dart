@@ -24,36 +24,50 @@ class LoadingScreen extends StatefulWidget {
 }
 
 class _LoadingScreenState extends State<LoadingScreen> {
+  bool _isInitialized = false;
+
   @override
   void initState() {
     super.initState();
-    _navigateToNextScreen();
+    // Pastikan UI sudah siap sebelum memulai navigasi
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      setState(() {
+        _isInitialized = true;
+      });
+      _navigateToNextScreen();
+    });
   }
-
   _navigateToNextScreen() async {
-    // Tunggu beberapa detik untuk menampilkan loading screen
-    await Future.delayed(const Duration(seconds: 3));
-    
-    // Check if onboarding is completed
-    final prefs = await SharedPreferences.getInstance();
-    final bool onboardingCompleted = prefs.getBool('onboarding_completed') ?? false;
-    
-    if (mounted) {
-      if (onboardingCompleted) {
-        // Navigate to home screen
-        Navigator.pushReplacementNamed(context, AppConstants.routeHome);
-      } else {
-        // Navigate to onboarding screen
+    try {
+      // Tunggu lebih lama untuk memastikan animasi logo selesai
+      // 4 detik untuk memberikan waktu animasi 3 detik + buffer 1 detik
+      await Future.delayed(const Duration(milliseconds: 4500));
+      
+      // Check if onboarding is completed
+      final prefs = await SharedPreferences.getInstance();
+      final bool onboardingCompleted = prefs.getBool('onboarding_completed') ?? false;
+      
+      if (mounted) {
+        if (onboardingCompleted) {
+          // Navigate to home screen
+          Navigator.pushReplacementNamed(context, AppConstants.routeHome);
+        } else {
+          // Navigate to onboarding screen
+          Navigator.pushReplacementNamed(context, AppConstants.routeOnboarding);
+        }
+      }
+    } catch (e) {
+      // Fallback jika ada error
+      if (mounted) {
         Navigator.pushReplacementNamed(context, AppConstants.routeOnboarding);
       }
     }
   }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      body: Stack(
+      body: _isInitialized ? Stack(
         children: [
           // 1. Latar belakang dengan gelombang animasi
           const BackgroundWaves(),
@@ -61,10 +75,12 @@ class _LoadingScreenState extends State<LoadingScreen> {
           // 2. Konten utama di tengah
           Center(
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // Logo SVG Animasi
-                const AnimatedLogo(size: 160),
+              mainAxisAlignment: MainAxisAlignment.center,              children: [
+                // Logo SVG Animasi dengan key unik untuk memastikan widget dibuat ulang
+                AnimatedLogo(
+                  key: ValueKey(DateTime.now().millisecondsSinceEpoch),
+                  size: 160,
+                ),
 
                 const SizedBox(height: 24),
 
@@ -92,6 +108,11 @@ class _LoadingScreenState extends State<LoadingScreen> {
             ),
           ),
         ],
+      ) : Container(
+        color: Colors.white,
+        child: const Center(
+          child: CircularProgressIndicator(),
+        ),
       ),
     );
   }
