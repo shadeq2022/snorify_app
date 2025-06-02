@@ -9,7 +9,6 @@ import 'package:snorify_app/ui/screens/onboarding_screen.dart';
 import 'package:snorify_app/ui/screens/loading_screen.dart';
 import 'package:snorify_app/ui/screens/session_detail_screen.dart';
 import 'package:snorify_app/ui/screens/dashboard_screen.dart';
-import 'package:snorify_app/ui/screens/statistics_screen.dart';
 import 'package:snorify_app/ui/screens/add_session_screen.dart';
 
 void main() async {
@@ -51,7 +50,6 @@ class MyApp extends StatelessWidget {
             AppConstants.routeHome: (context) => const HomeScreen(),
             AppConstants.routeAddSession: (context) => const AddSessionScreen(),
             AppConstants.routeDashboard: (context) => const DashboardScreen(),
-            AppConstants.routeStatistics: (context) => const StatisticsScreen(),
             '/session-detail': (context) => SessionDetailScreen(
               sessionId: ModalRoute.of(context)!.settings.arguments as int,
             ),

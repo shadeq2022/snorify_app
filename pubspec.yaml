@@ -50,6 +50,7 @@ dependencies:
   provider: ^6.1.2
   shared_preferences: ^2.2.2
   flutter_svg: ^2.0.10+1
+  screenshot: ^3.0.0 # Added screenshot package
   
   # Utils
   uuid: ^4.3.3
