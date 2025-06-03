@@ -6,7 +6,6 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
-import 'package:printing/printing.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:snorify_app/core/constants/app_constants.dart';
@@ -28,6 +27,7 @@ class SessionDetailScreen extends StatefulWidget {
 class _SessionDetailScreenState extends State<SessionDetailScreen> {
   bool _isStabilizing = false;
   int _stabilizationCountdown = 20;
+  bool _isSharing = false; // Loading state for share functionality
   //Create an instance of ScreenshotController
   ScreenshotController screenshotController = ScreenshotController();
 
@@ -205,19 +205,27 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
                                               '${session.waktuMulai} - ${session.waktuSelesai ?? "Now"}',
                                             ),
                                           ],
-                                        ),
-                                        IconButton(
-                                          onPressed:
-                                              () => _shareSessionReport(
+                                        ),                                        IconButton(
+                                          onPressed: _isSharing 
+                                              ? null
+                                              : () => _shareSessionReport(
                                                 context,
                                                 session,
                                                 readings,
                                               ),
-                                          icon: const Icon(
-                                            Icons.share,
-                                            size: 20,
-                                          ),
-                                          tooltip: 'Share',
+                                          icon: _isSharing
+                                              ? const SizedBox(
+                                                  width: 20,
+                                                  height: 20,
+                                                  child: CircularProgressIndicator(
+                                                    strokeWidth: 2,
+                                                  ),
+                                                )
+                                              : const Icon(
+                                                  Icons.share,
+                                                  size: 20,
+                                                ),
+                                          tooltip: _isSharing ? 'Generating report...' : 'Share',
                                           padding: EdgeInsets.zero,
                                           constraints: const BoxConstraints(),
                                         ),
@@ -933,7 +941,6 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
       );
     }
   }
-
   // ## FUNGSI DIPERBARUI ##
   // FUNGSI SHARE DENGAN METODE CAPTURE OFF-SCREEN
   Future<void> _shareSessionReport(
@@ -941,19 +948,27 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
   Sesi session,
   List<SensorReading> readings,
 ) async {
-  final pdf = pw.Document();
+  // Set loading state
+  setState(() {
+    _isSharing = true;
+  });
 
-  // 1. Ambil data yang valid
-  final allValidReadings = readings
-      .where((r) => r.stabilizing != 1 && r.spo2 >= 70)
-      .toList();
+  try {
+    final pdf = pw.Document();
 
-  if (allValidReadings.isEmpty) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('No valid data to generate report.')),
-    );
-    return;
-  }
+    // 1. Ambil data yang valid
+    final allValidReadings = readings
+        .where((r) => r.stabilizing != 1 && r.spo2 >= 70)
+        .toList();
+
+    if (allValidReadings.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No valid data to generate report.')),
+        );
+      }
+      return;
+    }
 
   // 2. Capture gambar grafik
   final chartWidgetForPdf = _buildChartsForPdf(readings, DateFormat('yyyy-MM-dd HH:mm:ss').parse('${session.tanggal} ${session.waktuMulai}'));
@@ -1086,13 +1101,32 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
       },
     ),
   );
-
   // 6. Simpan dan share file
   final output = await getTemporaryDirectory();
   final file = File("${output.path}/session_report_${session.id}.pdf");
   await file.writeAsBytes(await pdf.save());
 
-  Share.shareXFiles([XFile(file.path)], text: 'Session Report: ${session.nama}');
+  await Share.shareXFiles([XFile(file.path)], text: 'Session Report: ${session.nama}');
+  
+  if (mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Report generated successfully!')),
+    );
+  }
+  } catch (e) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error generating report: $e')),
+      );
+    }
+  } finally {
+    // Reset loading state
+    if (mounted) {
+      setState(() {
+        _isSharing = false;
+      });
+    }
+  }
 }
 
   void _showSpO2DistributionPopup(
