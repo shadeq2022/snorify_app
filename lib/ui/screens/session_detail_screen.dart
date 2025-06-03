@@ -522,7 +522,6 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
     DateTime sessionStartTime,
   ) {
     // Fungsi ini membuat versi "bersih" dari grafik untuk dirender menjadi gambar.
-    // Ini memastikan hasil capture konsisten dan berkualitas tinggi.
     final referenceTimestamp =
         readings.isNotEmpty ? readings.first.timestamp : 0;
 
@@ -556,7 +555,6 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
           );
         }).toList();
 
-    // Helper functions (duplikat atau refactor dari _buildCharts)
     FlTitlesData buildTitles(bool isSnore) => FlTitlesData(
       bottomTitles: AxisTitles(
         sideTitles: SideTitles(
@@ -572,9 +570,9 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
               space: 4,
               child: Text(
                 label,
-                style: const TextStyle(color: Colors.black, fontSize: 10),
+                style: const TextStyle(color: Colors.black, fontSize: 14),
               ),
-            );
+            ); // UBAH FONT
           },
         ),
       ),
@@ -587,8 +585,8 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
                 padding: const EdgeInsets.only(right: 8),
                 child: Text(
                   isSnore ? (value == 1.0 ? 'Yes' : 'No') : '${value.toInt()}',
-                  style: const TextStyle(color: Colors.black, fontSize: 10),
-                ),
+                  style: const TextStyle(color: Colors.black, fontSize: 14),
+                ), // UBAH FONT
               ),
         ),
       ),
@@ -597,7 +595,7 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
     );
 
     LineTouchData buildTouchData(Color color, bool isSnore) =>
-        LineTouchData(enabled: false); // Disable touch for PDF
+        LineTouchData(enabled: false);
 
     Widget buildChart(
       List<FlSpot> spots,
@@ -660,9 +658,10 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
                           labelResolver: (_) => '95%',
                           alignment: Alignment.topLeft,
                           style: const TextStyle(
-                            fontSize: 9,
+                            fontSize: 12,
                             color: Colors.red,
-                          ),
+                            fontWeight: FontWeight.bold,
+                          ), // UBAH FONT
                         ),
                       ),
                     ],
@@ -674,23 +673,33 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
 
     // Widget yang akan di-render untuk PDF
     return Container(
-      color: Colors.white, // Selalu gunakan background putih untuk PDF
+      color: Colors.white,
       padding: const EdgeInsets.all(16.0),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
+          // UBAH FONT JUDUL
           const Text(
             'SpO₂',
-            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black),
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Colors.black,
+              fontSize: 22,
+            ),
           ),
           SizedBox(
             height: 250,
             child: buildChart(spo2Spots, 70, 100, Colors.green, false),
           ),
           const SizedBox(height: 30),
+          // UBAH FONT JUDUL
           const Text(
             'Snoring',
-            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black),
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Colors.black,
+              fontSize: 22,
+            ),
           ),
           SizedBox(
             height: 150,
@@ -1061,7 +1070,12 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
               ),
               pw.SizedBox(height: 10),
               // Gambar akan mengisi sisa ruang yang tersedia dengan baik
-              pw.Expanded(child: pw.Center(child: pw.Image(image))),
+              pw.Expanded(
+                child: pw.Image(
+                  image,
+                  fit: pw.BoxFit.fitWidth, // <-- TAMBAHKAN BARIS INI
+                ),
+              ),
             ],
           );
         },
