@@ -952,15 +952,17 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
   // Set loading state
   setState(() {
     _isSharing = true;
-  });  try {
+  });
+  try {
     // Load custom fonts for Unicode character support
-    final regularFont = await rootBundle.load('assets/fonts/NotoSans-Regular.ttf');
+    final regularFont =
+        await rootBundle.load('assets/fonts/NotoSans-Regular.ttf');
     final boldFont = await rootBundle.load('assets/fonts/NotoSans-Bold.ttf');
-    final mathFontData = await rootBundle.load('assets/fonts/NotoSansMath-Regular.ttf');
-    
+    final mathFontData =
+        await rootBundle.load('assets/fonts/NotoSansMath-Regular.ttf');
+
     final pdf = pw.Document();
     final mathTtf = pw.Font.ttf(mathFontData);
-
     // Create custom text styles with Unicode font support
     final regularStyle = pw.TextStyle(
       font: pw.Font.ttf(regularFont),
@@ -976,15 +978,12 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
       fontSize: 20,
       fontWeight: pw.FontWeight.bold,
     );
-
     final mathStyle = pw.TextStyle(font: mathTtf, fontSize: 10);
-    
+
 
     // 1. Ambil data yang valid
-    final allValidReadings = readings
-        .where((r) => r.stabilizing != 1 && r.spo2 >= 70)
-        .toList();
-
+    final allValidReadings =
+        readings.where((r) => r.stabilizing != 1 && r.spo2 >= 70).toList();
     if (allValidReadings.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -994,147 +993,192 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
       return;
     }
 
-  // 2. Capture gambar grafik
-  final chartWidgetForPdf = _buildChartsForPdf(readings, DateFormat('yyyy-MM-dd HH:mm:ss').parse('${session.tanggal} ${session.waktuMulai}'));
-  final imageBytes = await screenshotController.captureFromWidget(
-    MediaQuery(
-      data: const MediaQueryData(size: Size(1200, 600)),
-      child: MaterialApp(
-        home: Scaffold(backgroundColor: Colors.white, body: chartWidgetForPdf),
-        theme: ThemeData.light(),
-        debugShowCheckedModeBanner: false,
+    // 2. Capture gambar grafik
+    final chartWidgetForPdf = _buildChartsForPdf(
+        readings,
+        DateFormat('yyyy-MM-dd HH:mm:ss')
+            .parse('${session.tanggal} ${session.waktuMulai}'));
+    final imageBytes = await screenshotController.captureFromWidget(
+      MediaQuery(
+        data: const MediaQueryData(size: Size(1200, 600)),
+        child: MaterialApp(
+          home:
+              Scaffold(backgroundColor: Colors.white, body: chartWidgetForPdf),
+          theme: ThemeData.light(),
+          debugShowCheckedModeBanner: false,
+        ),
       ),
-    ),
-    targetSize: const Size(1200, 600),
-    pixelRatio: 1.5,
-  );
+      targetSize: const Size(1200, 600),
+      pixelRatio: 1.5,
+    );
+    if (imageBytes == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Failed to capture chart image for PDF.')),
+        );
+      }
+      return;
+    }
+    final image = pw.MemoryImage(imageBytes);
+    // 3. Kalkulasi statistik
+    final spo2Values = allValidReadings.map((r) => r.spo2).toList();
+    final avgSpO2 = spo2Values.reduce((a, b) => a + b) / spo2Values.length;
+    final minSpO2 = spo2Values.reduce((a, b) => a < b ? a : b);
+    int dropCount = 0;
+    for (int i = 1; i < spo2Values.length; i++) {
+      if (spo2Values[i - 1] - spo2Values[i] >= 3) dropCount++;
+    }
+    final snoreCount = allValidReadings
+        .where((r) => r.status == AppConstants.statusSnore)
+        .length;
+    // 4. Kalkulasi Tabel Distribusi SpO₂
+    Map<String, double> spo2Distribution = {
+      '100% - 94%': 0,
+      '93% - 88%': 0,
+      '87% - 80%': 0,
+      '79% - 70%': 0,
+    };
+    final totalDuration = allValidReadings.length;
+    for (var reading in allValidReadings) {
+      if (reading.spo2 >= 94)
+        spo2Distribution['100% - 94%'] =
+            (spo2Distribution['100% - 94%'] ?? 0) + 1;
+      else if (reading.spo2 >= 88)
+        spo2Distribution['93% - 88%'] =
+            (spo2Distribution['93% - 88%'] ?? 0) + 1;
+      else if (reading.spo2 >= 80)
+        spo2Distribution['87% - 80%'] =
+            (spo2Distribution['87% - 80%'] ?? 0) + 1;
+      else
+        spo2Distribution['79% - 70%'] =
+            (spo2Distribution['79% - 70%'] ?? 0) + 1;
+    }
 
-  if (imageBytes == null) {
+    // 5. Bangun halaman PDF dengan layout yang benar
+    pdf.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.a4.landscape,
+        build: (pw.Context context) {
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              // ================== BAGIAN ATAS (HEADER & SUMMARY) ==================
+              // ## PERBAIKAN LAYOUT ##
+              // Header utama
+              pw.Container(
+                padding: const pw.EdgeInsets.all(12),
+                color: PdfColors.grey300,
+                width: double.infinity,
+                child: pw.Text(
+                  'Session Report: ${session.nama}',
+                  style: pw.TextStyle(
+                      fontSize: 20, fontWeight: pw.FontWeight.bold),
+                ),
+              ),
+              pw.SizedBox(height: 15),
+              // Baris untuk info, summary, dan tabel
+              pw.Row(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  // --- KOLOM KIRI (INFO & SUMMARY) ---
+                  pw.Expanded(
+                    flex: 2, // Memberi ruang lebih besar untuk kolom kiri
+                    child: pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Text('Date: ${session.tanggal}',
+                            style: const pw.TextStyle(fontSize: 10)),
+                        pw.Text(
+                            'Time: ${session.waktuMulai} - ${session.waktuSelesai ?? "Ongoing"}',
+                            style: const pw.TextStyle(fontSize: 10)),
+                        pw.Text('Duration: ${session.durasi ?? "-"} min',
+                            style: const pw.TextStyle(fontSize: 10)),
+                        if (session.catatan != null &&
+                            session.catatan!.isNotEmpty)
+                          pw.Text('Notes: ${session.catatan}',
+                              style: const pw.TextStyle(fontSize: 10)),
+                        pw.Divider(height: 20),
+                        pw.Text('Summary', style: boldStyle),
+                        pw.SizedBox(height: 5),
+                        pw.Text('Avg SpO\u2082: ${avgSpO2.toStringAsFixed(1)}%',
+                            style: regularStyle),
+                        pw.Text('Min SpO\u2082: ${minSpO2.toStringAsFixed(1)}%',
+                            style: regularStyle),
+                        pw.Text('Drops ≥3%: $dropCount', style: mathStyle),
+                        pw.Text('Snore Count: $snoreCount',
+                            style: regularStyle),
+                      ],
+                    ),
+                  ),
+                  pw.SizedBox(width: 40),
+                  // --- KOLOM KANAN (TABEL DISTRIBUSI) ---
+                  pw.Expanded(
+                    flex: 3, // Memberi ruang lebih besar untuk tabel
+                    child: pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Text('SpO\u2082 Distribution', style: boldStyle),
+                        pw.SizedBox(height: 5),
+                        pw.Table.fromTextArray(
+                          cellStyle: const pw.TextStyle(fontSize: 9),
+                          headerStyle: pw.TextStyle(
+                              font: pw.Font.ttf(boldFont),
+                              fontWeight: pw.FontWeight.bold,
+                              fontSize: 10),
+                          headerDecoration:
+                              const pw.BoxDecoration(color: PdfColors.grey300),
+                          cellAlignment: pw.Alignment.centerRight,
+                          columnWidths: {
+                            0: const pw.FlexColumnWidth(2.5),
+                            1: const pw.FlexColumnWidth(1.5),
+                            2: const pw.FlexColumnWidth(1.5),
+                          },
+                          data: <List<String>>[
+                            <String>['SpO\u2082 Range', 'Time (min)', '% Time'],
+                            ...spo2Distribution.entries.map((entry) {
+                              final minutes =
+                                  (entry.value / 60).toStringAsFixed(1);
+                              final percentage = totalDuration > 0
+                                  ? (entry.value / totalDuration * 100)
+                                      .toStringAsFixed(1)
+                                  : '0.0';
+                              return [entry.key, '$minutes', '$percentage %'];
+                            }).toList(),
+                          ],
+                        )
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              pw.Divider(height: 25),
+
+              // ================== BAGIAN BAWAH (GRAFIK) ==================
+              pw.Text('Charts:',
+                  style: pw.TextStyle(
+                      fontSize: 14, fontWeight: pw.FontWeight.bold)),
+              pw.SizedBox(height: 5),
+              pw.Expanded(
+                child: pw.Image(image, fit: pw.BoxFit.fitWidth),
+              )
+            ],
+          );
+        },
+      ),
+    );
+    // 6. Simpan dan share file
+    final output = await getTemporaryDirectory();
+    final file = File("${output.path}/session_report_${session.id}.pdf");
+    await file.writeAsBytes(await pdf.save());
+
+    await Share.shareXFiles([XFile(file.path)],
+        text: 'Session Report: ${session.nama}');
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to capture chart image for PDF.')),
+        const SnackBar(content: Text('Report generated successfully!')),
       );
     }
-    return;
-  }
-  final image = pw.MemoryImage(imageBytes);
-
-  // 3. Kalkulasi statistik
-  final spo2Values = allValidReadings.map((r) => r.spo2).toList();
-  final avgSpO2 = spo2Values.reduce((a, b) => a + b) / spo2Values.length;
-  final minSpO2 = spo2Values.reduce((a, b) => a < b ? a : b);
-  int dropCount = 0;
-  for (int i = 1; i < spo2Values.length; i++) {
-    if (spo2Values[i - 1] - spo2Values[i] >= 3) dropCount++;
-  }
-  final snoreCount =
-      allValidReadings.where((r) => r.status == AppConstants.statusSnore).length;
-
-  // 4. Kalkulasi Tabel Distribusi SpO₂
-  Map<String, double> spo2Distribution = {
-    '100% - 94%': 0, '93% - 88%': 0, '87% - 80%': 0, '79% - 70%': 0,
-  };
-  final totalDuration = allValidReadings.length;
-  for (var reading in allValidReadings) {
-    if (reading.spo2 >= 94) spo2Distribution['100% - 94%'] = (spo2Distribution['100% - 94%'] ?? 0) + 1;
-    else if (reading.spo2 >= 88) spo2Distribution['93% - 88%'] = (spo2Distribution['93% - 88%'] ?? 0) + 1;
-    else if (reading.spo2 >= 80) spo2Distribution['87% - 80%'] = (spo2Distribution['87% - 80%'] ?? 0) + 1;
-    else spo2Distribution['79% - 70%'] = (spo2Distribution['79% - 70%'] ?? 0) + 1;
-  }
-
-  // 5. Bangun halaman PDF dengan layout yang benar
-  pdf.addPage(
-    pw.Page(
-      pageFormat: PdfPageFormat.a4.landscape,
-      build: (pw.Context context) {
-        return pw.Column(
-          crossAxisAlignment: pw.CrossAxisAlignment.start,
-          children: [
-            // ================== BAGIAN ATAS (HEADER & SUMMARY) ==================
-            // ## PERBAIKAN: Gunakan pw.Row, bukan pw.Partition ##
-            pw.Row(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                // --- KOLOM KIRI (INFO & SUMMARY) ---
-                pw.Container(
-                  width: 350, // Lebar kolom kiri
-                  child: pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
-                    children: [
-                      pw.Text('Session Report: ${session.nama}', style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold)),
-                      pw.SizedBox(height: 8),
-                      pw.Text('Date: ${session.tanggal}', style: const pw.TextStyle(fontSize: 10)),
-                      pw.Text('Time: ${session.waktuMulai} - ${session.waktuSelesai ?? "Ongoing"}', style: const pw.TextStyle(fontSize: 10)),
-                      pw.Text('Duration: ${session.durasi ?? "-"} min', style: const pw.TextStyle(fontSize: 10)),
-                      if (session.catatan != null && session.catatan!.isNotEmpty)
-                        pw.Text('Notes: ${session.catatan}', style: const pw.TextStyle(fontSize: 10)),
-                      pw.Divider(height: 5),
-                      pw.Text('Summary', style: boldStyle),
-                      pw.SizedBox(height: 5),                      pw.Text('Avg SpO\u2082: ${avgSpO2.toStringAsFixed(1)}%', style: regularStyle),
-                      pw.Text('Min SpO\u2082: ${minSpO2.toStringAsFixed(1)}%', style: regularStyle),
-                      pw.Text('Drops ≥3%: $dropCount', style: mathStyle),
-                      pw.Text('Snore Count: $snoreCount', style: regularStyle),
-                    ],
-                  ),
-                ),
-                pw.SizedBox(width: 20),
-                // --- KOLOM KANAN (TABEL DISTRIBUSI) ---
-                pw.Expanded(
-                  child: pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
-                    children: [                      pw.Text('SpO\u2082 Distribution', style: boldStyle),
-                      pw.SizedBox(height: 5),
-                      pw.Table.fromTextArray(
-                        cellStyle: const pw.TextStyle(fontSize: 9),
-                        headerStyle: pw.TextStyle(font: pw.Font.ttf(boldFont), fontWeight: pw.FontWeight.bold, fontSize: 10),
-                        headerDecoration: const pw.BoxDecoration(color: PdfColors.grey300),
-                        cellAlignment: pw.Alignment.centerRight,
-                        columnWidths: {
-                          0: const pw.FlexColumnWidth(2.5), 1: const pw.FlexColumnWidth(1.5), 2: const pw.FlexColumnWidth(1.5),
-                        },
-                        data: <List<String>>[
-                          <String>['SpO\u2082 Range', 'Time (min)', '% Time'],
-                          ...spo2Distribution.entries.map((entry) {
-                            final minutes = (entry.value / 60).toStringAsFixed(1);
-                            final percentage = totalDuration > 0
-                                ? (entry.value / totalDuration * 100).toStringAsFixed(1)
-                                : '0.0';
-                            return [entry.key, '$minutes', '$percentage %'];
-                          }).toList(),
-                        ],
-                      )
-                    ],
-                  ),
-                ),
-              ],
-            ),
-
-            pw.Divider(height: 10),
-
-            // ================== BAGIAN BAWAH (GRAFIK) ==================
-            pw.Text('Charts:', style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
-            pw.SizedBox(height: 1),
-            
-            pw.Expanded(
-              child: pw.Image(image, fit: pw.BoxFit.fitWidth),
-            )
-          ],
-        );
-      },
-    ),
-  );
-  // 6. Simpan dan share file
-  final output = await getTemporaryDirectory();
-  final file = File("${output.path}/session_report_${session.id}.pdf");
-  await file.writeAsBytes(await pdf.save());
-
-  await Share.shareXFiles([XFile(file.path)], text: 'Session Report: ${session.nama}');
-  
-  if (mounted) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Report generated successfully!')),
-    );
-  }
   } catch (e) {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
