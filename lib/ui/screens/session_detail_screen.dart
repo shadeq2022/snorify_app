@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
@@ -951,10 +952,33 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
   // Set loading state
   setState(() {
     _isSharing = true;
-  });
-
-  try {
+  });  try {
+    // Load custom fonts for Unicode character support
+    final regularFont = await rootBundle.load('assets/fonts/NotoSans-Regular.ttf');
+    final boldFont = await rootBundle.load('assets/fonts/NotoSans-Bold.ttf');
+    final mathFontData = await rootBundle.load('assets/fonts/NotoSansMath-Regular.ttf');
+    
     final pdf = pw.Document();
+    final mathTtf = pw.Font.ttf(mathFontData);
+
+    // Create custom text styles with Unicode font support
+    final regularStyle = pw.TextStyle(
+      font: pw.Font.ttf(regularFont),
+      fontSize: 10,
+    );
+    final boldStyle = pw.TextStyle(
+      font: pw.Font.ttf(boldFont),
+      fontSize: 12,
+      fontWeight: pw.FontWeight.bold,
+    );
+    final headerStyle = pw.TextStyle(
+      font: pw.Font.ttf(boldFont),
+      fontSize: 20,
+      fontWeight: pw.FontWeight.bold,
+    );
+
+    final mathStyle = pw.TextStyle(font: mathTtf, fontSize: 10);
+    
 
     // 1. Ambil data yang valid
     final allValidReadings = readings
@@ -1044,13 +1068,12 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
                       pw.Text('Duration: ${session.durasi ?? "-"} min', style: const pw.TextStyle(fontSize: 10)),
                       if (session.catatan != null && session.catatan!.isNotEmpty)
                         pw.Text('Notes: ${session.catatan}', style: const pw.TextStyle(fontSize: 10)),
-                      pw.Divider(height: 15),
-                      pw.Text('Summary', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold)),
-                      pw.SizedBox(height: 5),
-                      pw.Text('Avg SpO₂: ${avgSpO2.toStringAsFixed(1)}%', style: const pw.TextStyle(fontSize: 10)),
-                      pw.Text('Min SpO₂: ${minSpO2.toStringAsFixed(1)}%', style: const pw.TextStyle(fontSize: 10)),
-                      pw.Text('Drops ≥3%: $dropCount', style: const pw.TextStyle(fontSize: 10)),
-                      pw.Text('Snore Count: $snoreCount', style: const pw.TextStyle(fontSize: 10)),
+                      pw.Divider(height: 5),
+                      pw.Text('Summary', style: boldStyle),
+                      pw.SizedBox(height: 5),                      pw.Text('Avg SpO\u2082: ${avgSpO2.toStringAsFixed(1)}%', style: regularStyle),
+                      pw.Text('Min SpO\u2082: ${minSpO2.toStringAsFixed(1)}%', style: regularStyle),
+                      pw.Text('Drops ≥3%: $dropCount', style: mathStyle),
+                      pw.Text('Snore Count: $snoreCount', style: regularStyle),
                     ],
                   ),
                 ),
@@ -1059,19 +1082,18 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
                 pw.Expanded(
                   child: pw.Column(
                     crossAxisAlignment: pw.CrossAxisAlignment.start,
-                    children: [
-                      pw.Text('SpO₂ Distribution', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold)),
+                    children: [                      pw.Text('SpO\u2082 Distribution', style: boldStyle),
                       pw.SizedBox(height: 5),
                       pw.Table.fromTextArray(
                         cellStyle: const pw.TextStyle(fontSize: 9),
-                        headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
+                        headerStyle: pw.TextStyle(font: pw.Font.ttf(boldFont), fontWeight: pw.FontWeight.bold, fontSize: 10),
                         headerDecoration: const pw.BoxDecoration(color: PdfColors.grey300),
                         cellAlignment: pw.Alignment.centerRight,
                         columnWidths: {
                           0: const pw.FlexColumnWidth(2.5), 1: const pw.FlexColumnWidth(1.5), 2: const pw.FlexColumnWidth(1.5),
                         },
                         data: <List<String>>[
-                          <String>['SpO₂ Range', 'Time (min)', '% Time'],
+                          <String>['SpO\u2082 Range', 'Time (min)', '% Time'],
                           ...spo2Distribution.entries.map((entry) {
                             final minutes = (entry.value / 60).toStringAsFixed(1);
                             final percentage = totalDuration > 0
