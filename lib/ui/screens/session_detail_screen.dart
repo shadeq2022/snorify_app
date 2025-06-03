@@ -937,159 +937,163 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
   // ## FUNGSI DIPERBARUI ##
   // FUNGSI SHARE DENGAN METODE CAPTURE OFF-SCREEN
   Future<void> _shareSessionReport(
-    BuildContext context,
-    Sesi session,
-    List<SensorReading> readings,
-  ) async {
-    final pdf = pw.Document();
+  BuildContext context,
+  Sesi session,
+  List<SensorReading> readings,
+) async {
+  final pdf = pw.Document();
 
-    // Hitung waktu mulai sesi
-    final sessionStart = DateFormat(
-      'yyyy-MM-dd HH:mm:ss',
-    ).parse('${session.tanggal} ${session.waktuMulai}');
+  // 1. Ambil data yang valid
+  final allValidReadings = readings
+      .where((r) => r.stabilizing != 1 && r.spo2 >= 70)
+      .toList();
 
-    // 1. Definisikan ukuran target berdasarkan rasio A4 Landscape
-    final a4Landscape = PdfPageFormat.a4.landscape;
-    const double imageWidth =
-        1200; // Lebar gambar dalam pixel (resolusi lebih tinggi)
-    final imageHeight = imageWidth / (a4Landscape.width / a4Landscape.height);
-
-    // 2. Buat widget khusus untuk PDF
-    final chartWidgetForPdf = _buildChartsForPdf(readings, sessionStart);
-
-    // 3. Capture widget dengan membungkusnya dalam MediaQuery palsu
-    final imageBytes = await screenshotController.captureFromWidget(
-      // ## PERBAIKAN DI SINI ##
-      // Bungkus dengan MediaQuery untuk menyediakan data ukuran layar palsu
-      MediaQuery(
-        data: MediaQueryData(size: Size(imageWidth, imageHeight)),
-        child: MaterialApp(
-          home: Scaffold(
-            // Beri warna background pada scaffold agar konsisten
-            backgroundColor: Colors.white,
-            body: chartWidgetForPdf,
-          ),
-          // Gunakan tema yang terang agar teks dan garis selalu terlihat jelas
-          theme: ThemeData.light(),
-          debugShowCheckedModeBanner: false,
-        ),
-      ),
-      // ## AKHIR PERBAIKAN ##
-      targetSize: Size(imageWidth, imageHeight),
-      pixelRatio: 2.0,
+  if (allValidReadings.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('No valid data to generate report.')),
     );
-
-    if (imageBytes == null) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to capture chart image.')),
-        );
-      }
-      return;
-    }
-    final image = pw.MemoryImage(imageBytes);
-
-    // Calculate statistics
-    final filteredReadings =
-        readings.where((r) => r.stabilizing != 1 && r.spo2 >= 70).toList();
-    final spo2Values = filteredReadings.map((r) => r.spo2).toList();
-    final avgSpO2 =
-        spo2Values.isNotEmpty
-            ? spo2Values.reduce((a, b) => a + b) / spo2Values.length
-            : 0.0;
-    final minSpO2 =
-        spo2Values.isNotEmpty
-            ? spo2Values.reduce((a, b) => a < b ? a : b)
-            : 0.0;
-
-    int dropCount = 0;
-    for (int i = 1; i < spo2Values.length; i++) {
-      if (spo2Values[i - 1] - spo2Values[i] >= 3) dropCount++;
-    }
-    final snoreCount =
-        filteredReadings
-            .where((r) => r.status == AppConstants.statusSnore)
-            .length;
-
-    pdf.addPage(
-      pw.Page(
-        pageFormat: a4Landscape, // Gunakan format landscape
-        build: (pw.Context context) {
-          return pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [
-              pw.Text(
-                'Session Report: ${session.nama}',
-                style: pw.TextStyle(
-                  fontSize: 24,
-                  fontWeight: pw.FontWeight.bold,
-                ),
-              ),
-              pw.SizedBox(height: 10),
-              pw.Text('Date: ${session.tanggal}'),
-              pw.Text(
-                'Time: ${session.waktuMulai} - ${session.waktuSelesai ?? "Ongoing"}',
-              ),
-              pw.Text('Duration: ${session.durasi ?? "-"} min'),
-              if (session.catatan != null && session.catatan!.isNotEmpty)
-                pw.Text('Notes: ${session.catatan}'),
-              pw.Divider(height: 20),
-              pw.Text(
-                'Summary:',
-                style: pw.TextStyle(
-                  fontSize: 18,
-                  fontWeight: pw.FontWeight.bold,
-                ),
-              ),
-              pw.Row(
-                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                children: [
-                  pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
-                    children: [
-                      pw.Text('Avg SpO₂: ${avgSpO2.toStringAsFixed(1)}%'),
-                      pw.Text('Min SpO₂: ${minSpO2.toStringAsFixed(1)}%'),
-                    ],
-                  ),
-                  pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
-                    children: [
-                      pw.Text('Drops ≥3%: $dropCount'),
-                      pw.Text('Snore Count: $snoreCount'),
-                    ],
-                  ),
-                ],
-              ),
-              pw.Divider(height: 20),
-              pw.Text(
-                'Charts:',
-                style: pw.TextStyle(
-                  fontSize: 18,
-                  fontWeight: pw.FontWeight.bold,
-                ),
-              ),
-              pw.SizedBox(height: 10),
-              // Gambar akan mengisi sisa ruang yang tersedia dengan baik
-              pw.Expanded(
-                child: pw.Image(
-                  image,
-                  fit: pw.BoxFit.fitWidth, // <-- TAMBAHKAN BARIS INI
-                ),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-
-    final output = await getTemporaryDirectory();
-    final file = File("${output.path}/session_report_${session.id}.pdf");
-    await file.writeAsBytes(await pdf.save());
-
-    Share.shareXFiles([
-      XFile(file.path),
-    ], text: 'Session Report: ${session.nama}');
+    return;
   }
+
+  // 2. Capture gambar grafik
+  final chartWidgetForPdf = _buildChartsForPdf(readings, DateFormat('yyyy-MM-dd HH:mm:ss').parse('${session.tanggal} ${session.waktuMulai}'));
+  final imageBytes = await screenshotController.captureFromWidget(
+    MediaQuery(
+      data: const MediaQueryData(size: Size(1200, 600)),
+      child: MaterialApp(
+        home: Scaffold(backgroundColor: Colors.white, body: chartWidgetForPdf),
+        theme: ThemeData.light(),
+        debugShowCheckedModeBanner: false,
+      ),
+    ),
+    targetSize: const Size(1200, 600),
+    pixelRatio: 1.5,
+  );
+
+  if (imageBytes == null) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to capture chart image for PDF.')),
+      );
+    }
+    return;
+  }
+  final image = pw.MemoryImage(imageBytes);
+
+  // 3. Kalkulasi statistik
+  final spo2Values = allValidReadings.map((r) => r.spo2).toList();
+  final avgSpO2 = spo2Values.reduce((a, b) => a + b) / spo2Values.length;
+  final minSpO2 = spo2Values.reduce((a, b) => a < b ? a : b);
+  int dropCount = 0;
+  for (int i = 1; i < spo2Values.length; i++) {
+    if (spo2Values[i - 1] - spo2Values[i] >= 3) dropCount++;
+  }
+  final snoreCount =
+      allValidReadings.where((r) => r.status == AppConstants.statusSnore).length;
+
+  // 4. Kalkulasi Tabel Distribusi SpO₂
+  Map<String, double> spo2Distribution = {
+    '100% - 94%': 0, '93% - 88%': 0, '87% - 80%': 0, '79% - 70%': 0,
+  };
+  final totalDuration = allValidReadings.length;
+  for (var reading in allValidReadings) {
+    if (reading.spo2 >= 94) spo2Distribution['100% - 94%'] = (spo2Distribution['100% - 94%'] ?? 0) + 1;
+    else if (reading.spo2 >= 88) spo2Distribution['93% - 88%'] = (spo2Distribution['93% - 88%'] ?? 0) + 1;
+    else if (reading.spo2 >= 80) spo2Distribution['87% - 80%'] = (spo2Distribution['87% - 80%'] ?? 0) + 1;
+    else spo2Distribution['79% - 70%'] = (spo2Distribution['79% - 70%'] ?? 0) + 1;
+  }
+
+  // 5. Bangun halaman PDF dengan layout yang benar
+  pdf.addPage(
+    pw.Page(
+      pageFormat: PdfPageFormat.a4.landscape,
+      build: (pw.Context context) {
+        return pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            // ================== BAGIAN ATAS (HEADER & SUMMARY) ==================
+            // ## PERBAIKAN: Gunakan pw.Row, bukan pw.Partition ##
+            pw.Row(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                // --- KOLOM KIRI (INFO & SUMMARY) ---
+                pw.Container(
+                  width: 350, // Lebar kolom kiri
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text('Session Report: ${session.nama}', style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold)),
+                      pw.SizedBox(height: 8),
+                      pw.Text('Date: ${session.tanggal}', style: const pw.TextStyle(fontSize: 10)),
+                      pw.Text('Time: ${session.waktuMulai} - ${session.waktuSelesai ?? "Ongoing"}', style: const pw.TextStyle(fontSize: 10)),
+                      pw.Text('Duration: ${session.durasi ?? "-"} min', style: const pw.TextStyle(fontSize: 10)),
+                      if (session.catatan != null && session.catatan!.isNotEmpty)
+                        pw.Text('Notes: ${session.catatan}', style: const pw.TextStyle(fontSize: 10)),
+                      pw.Divider(height: 15),
+                      pw.Text('Summary', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold)),
+                      pw.SizedBox(height: 5),
+                      pw.Text('Avg SpO₂: ${avgSpO2.toStringAsFixed(1)}%', style: const pw.TextStyle(fontSize: 10)),
+                      pw.Text('Min SpO₂: ${minSpO2.toStringAsFixed(1)}%', style: const pw.TextStyle(fontSize: 10)),
+                      pw.Text('Drops ≥3%: $dropCount', style: const pw.TextStyle(fontSize: 10)),
+                      pw.Text('Snore Count: $snoreCount', style: const pw.TextStyle(fontSize: 10)),
+                    ],
+                  ),
+                ),
+                pw.SizedBox(width: 20),
+                // --- KOLOM KANAN (TABEL DISTRIBUSI) ---
+                pw.Expanded(
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text('SpO₂ Distribution', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold)),
+                      pw.SizedBox(height: 5),
+                      pw.Table.fromTextArray(
+                        cellStyle: const pw.TextStyle(fontSize: 9),
+                        headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
+                        headerDecoration: const pw.BoxDecoration(color: PdfColors.grey300),
+                        cellAlignment: pw.Alignment.centerRight,
+                        columnWidths: {
+                          0: const pw.FlexColumnWidth(2.5), 1: const pw.FlexColumnWidth(1.5), 2: const pw.FlexColumnWidth(1.5),
+                        },
+                        data: <List<String>>[
+                          <String>['SpO₂ Range', 'Time (min)', '% Time'],
+                          ...spo2Distribution.entries.map((entry) {
+                            final minutes = (entry.value / 60).toStringAsFixed(1);
+                            final percentage = totalDuration > 0
+                                ? (entry.value / totalDuration * 100).toStringAsFixed(1)
+                                : '0.0';
+                            return [entry.key, '$minutes', '$percentage %'];
+                          }).toList(),
+                        ],
+                      )
+                    ],
+                  ),
+                ),
+              ],
+            ),
+
+            pw.Divider(height: 10),
+
+            // ================== BAGIAN BAWAH (GRAFIK) ==================
+            pw.Text('Charts:', style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
+            pw.SizedBox(height: 1),
+            
+            pw.Expanded(
+              child: pw.Image(image, fit: pw.BoxFit.fitWidth),
+            )
+          ],
+        );
+      },
+    ),
+  );
+
+  // 6. Simpan dan share file
+  final output = await getTemporaryDirectory();
+  final file = File("${output.path}/session_report_${session.id}.pdf");
+  await file.writeAsBytes(await pdf.save());
+
+  Share.shareXFiles([XFile(file.path)], text: 'Session Report: ${session.nama}');
+}
 
   void _showSpO2DistributionPopup(
     BuildContext context,
