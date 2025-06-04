@@ -67,6 +67,8 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
         // Hitung statistik SPO2 dan snoring (exclude stabilization data and invalid SpO2 < 70)
         final filteredReadings =
             readings.where((r) => r.stabilizing != 1 && r.spo2 >= 70).toList();
+        final validSnoreReadings =
+    readings.where((r) => r.stabilizing != 1).toList();
         final spo2Values = filteredReadings.map((r) => r.spo2).toList();
         final avgSpO2 =
             spo2Values.isNotEmpty
@@ -80,10 +82,16 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
         for (int i = 1; i < spo2Values.length; i++) {
           if (spo2Values[i - 1] - spo2Values[i] >= 3) dropCount++;
         }
-        final snoreCount =
-            filteredReadings
-                .where((r) => r.status == AppConstants.statusSnore)
-                .length;
+        int snoreCount = 0;
+bool wasSnoring = false;
+
+for (final r in validSnoreReadings) {
+  final isSnoring = r.status == AppConstants.statusSnore;
+  if (isSnoring && !wasSnoring) {
+    snoreCount++;
+  }
+  wasSnoring = isSnoring;
+}
 
         // Check for current stabilization
         final isCurrentlyStabilizing =
@@ -1023,6 +1031,8 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
         }
         return;
       }
+      final validSnoreReadings =
+    readings.where((r) => r.stabilizing != 1).toList();
 
       // 2. Capture gambar grafik
       final chartWidgetForPdf = _buildChartsForPdf(
@@ -1066,10 +1076,16 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
       for (int i = 1; i < spo2Values.length; i++) {
         if (spo2Values[i - 1] - spo2Values[i] >= 3) dropCount++;
       }
-      final snoreCount =
-          allValidReadings
-              .where((r) => r.status == AppConstants.statusSnore)
-              .length;
+      int snoreCount = 0;
+bool wasSnoring = false;
+
+for (final r in validSnoreReadings) {
+  final isSnoring = r.status == AppConstants.statusSnore;
+  if (isSnoring && !wasSnoring) {
+    snoreCount++;
+  }
+  wasSnoring = isSnoring;
+}
       // 4. Kalkulasi Tabel Distribusi SpO₂
       Map<String, double> spo2Distribution = {
         '100% - 94%': 0,
