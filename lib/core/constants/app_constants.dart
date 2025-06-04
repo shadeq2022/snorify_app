@@ -3,7 +3,7 @@
 class AppConstants {
   // App information
   static const String appName = 'Snorify';
-  static const String appVersion = '1.1.3';
+  static const String appVersion = '1.1.4';
   
   // BLE related constants
   // static const String deviceNamePrefix = 'ESP32'; // Prefix for ESP32C3 devices
