@@ -943,6 +943,14 @@ for (final r in validSnoreReadings) {
     final endTimeObj = DateFormat('HH:mm:ss').parse(endTime);
     final difference = endTimeObj.difference(startTime);
     final durationMinutes = difference.inMinutes;
+    final durationSeconds = difference.inSeconds;
+    
+    print('Session End Debug:');
+    print('Start time: ${session.waktuMulai}');
+    print('End time: $endTime');
+    print('Duration seconds: $durationSeconds');
+    print('Duration minutes (rounded): $durationMinutes');
+    print('Duration minutes (exact): ${(durationSeconds / 60).toStringAsFixed(1)}');
 
     // Update session
     final updatedSession = session.copyWith(
@@ -1087,13 +1095,26 @@ for (final r in validSnoreReadings) {
   wasSnoring = isSnoring;
 }
       // 4. Kalkulasi Tabel Distribusi SpO₂
+      // Calculate actual session duration in seconds from start to end timestamp
+      final firstTimestamp = allValidReadings.first.timestamp;
+      final lastTimestamp = allValidReadings.last.timestamp;
+      // Use reading count as more accurate duration since there might be gaps in timestamps
+      final actualDurationSeconds = allValidReadings.length; // Each reading ≈ 1 second
+      
+      print('PDF SpO2 Distribution Debug:');
+      print('Valid readings count: ${allValidReadings.length}');
+      print('First timestamp: $firstTimestamp');
+      print('Last timestamp: $lastTimestamp');
+      print('Timestamp duration (seconds): ${lastTimestamp - firstTimestamp}');
+      print('Actual duration based on readings (seconds): $actualDurationSeconds');
+      print('Actual duration (minutes): ${(actualDurationSeconds / 60).toStringAsFixed(1)}');
+      
       Map<String, double> spo2Distribution = {
         '100% - 94%': 0,
         '93% - 88%': 0,
         '87% - 80%': 0,
         '79% - 70%': 0,
       };
-      final totalDuration = allValidReadings.length;
       for (var reading in allValidReadings) {
         if (reading.spo2 >= 94)
           spo2Distribution['100% - 94%'] =
@@ -1229,11 +1250,14 @@ if (session.catatan != null && session.catatan!.isNotEmpty)
                                 '% Time',
                               ],
                               ...spo2Distribution.entries.map((entry) {
-                                final minutes = (entry.value / 60)
-                                    .toStringAsFixed(1);
+                                final totalReadings = allValidReadings.length.toDouble();
+                                // Calculate actual minutes based on proportion and actual duration
+                                final proportionOfTime = totalReadings > 0 ? (entry.value / totalReadings) : 0.0;
+                                final actualMinutes = (actualDurationSeconds / 60) * proportionOfTime;
+                                final minutes = actualMinutes.toStringAsFixed(1);
                                 final percentage =
-                                    totalDuration > 0
-                                        ? (entry.value / totalDuration * 100)
+                                    totalReadings > 0
+                                        ? (entry.value / totalReadings * 100)
                                             .toStringAsFixed(1)
                                         : '0.0';
                                 return [entry.key, '$minutes', '$percentage %'];
@@ -1310,7 +1334,21 @@ if (session.catatan != null && session.catatan!.isNotEmpty)
       return;
     }
 
-    // Calculate SpO2 distribution
+    // Calculate actual session duration in seconds from start to end timestamp
+    final firstTimestamp = validReadings.first.timestamp;
+    final lastTimestamp = validReadings.last.timestamp;
+    // Use reading count as more accurate duration since there might be gaps in timestamps
+    final actualDurationSeconds = validReadings.length; // Each reading ≈ 1 second
+    
+    print('SpO2 Distribution Debug:');
+    print('Valid readings count: ${validReadings.length}');
+    print('First timestamp: $firstTimestamp');
+    print('Last timestamp: $lastTimestamp');
+    print('Timestamp duration (seconds): ${lastTimestamp - firstTimestamp}');
+    print('Actual duration based on readings (seconds): $actualDurationSeconds');
+    print('Actual duration (minutes): ${(actualDurationSeconds / 60).toStringAsFixed(1)}');
+
+    // Calculate SpO2 distribution based on time duration, not count
     Map<String, double> spo2Distribution = {
       '100% - 94%': 0,
       '93% - 88%': 0,
@@ -1318,8 +1356,8 @@ if (session.catatan != null && session.catatan!.isNotEmpty)
       '79% - 70%': 0,
     };
 
-    final totalDuration = validReadings.length; // in seconds
-
+    // Calculate time spent in each SpO2 range
+    // Assume each reading represents approximately 1 second interval
     for (var reading in validReadings) {
       if (reading.spo2 >= 94) {
         spo2Distribution['100% - 94%'] = spo2Distribution['100% - 94%']! + 1;
@@ -1331,6 +1369,9 @@ if (session.catatan != null && session.catatan!.isNotEmpty)
         spo2Distribution['79% - 70%'] = spo2Distribution['79% - 70%']! + 1;
       }
     }
+    
+    print('SpO2 Distribution counts: $spo2Distribution');
+    print('Total distribution sum: ${spo2Distribution.values.reduce((a, b) => a + b)}');
 
     showDialog(
       context: context,
@@ -1406,10 +1447,14 @@ if (session.catatan != null && session.catatan!.isNotEmpty)
 ],
                       ),
                       ...spo2Distribution.entries.map((entry) {
-                        final minutes = (entry.value / 60).toStringAsFixed(1);
+                        final totalReadings = validReadings.length.toDouble();
+                        // Calculate actual minutes based on proportion and actual duration
+                        final proportionOfTime = totalReadings > 0 ? (entry.value / totalReadings) : 0.0;
+                        final actualMinutes = (actualDurationSeconds / 60) * proportionOfTime;
+                        final minutes = actualMinutes.toStringAsFixed(1);
                         final percentage =
-                            totalDuration > 0
-                                ? (entry.value / totalDuration * 100)
+                            totalReadings > 0
+                                ? (entry.value / totalReadings * 100)
                                     .toStringAsFixed(1)
                                 : '0.0';
                         return TableRow(

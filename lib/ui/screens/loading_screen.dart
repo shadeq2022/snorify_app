@@ -95,7 +95,6 @@ class _LoadingScreenState extends State<LoadingScreen> {
                 ),
 
                 const SizedBox(height: 16),
-
                 // Tagline Aplikasi
                 Text(
                   'Memantau kualitas tidur Anda...',
