@@ -7,7 +7,6 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:snorify_app/core/constants/app_constants.dart';
 import 'package:snorify_app/core/models/sensor_reading.dart';
 
-
 class BleService with ChangeNotifier {
   // Singleton pattern
   static final BleService _instance = BleService._internal();
@@ -18,9 +17,9 @@ class BleService with ChangeNotifier {
   // Service UUID yang terdeteksi di nRFConnect:
   static const String esp32ServiceUuid = "12345678-1234-5678-1234-56789abcdef0";
   // Characteristic UUID untuk Notifikasi:
-  static const String esp32CharacteristicUuid = "87654321-4321-8765-4321-123456789abc";
+  static const String esp32CharacteristicUuid =
+      "87654321-4321-8765-4321-123456789abc";
   // MAC Address ESP32 yang terdeteksi: 64:E8:33:87:53:4E
-
 
   // Stream controllers
   final StreamController<List<BluetoothDevice>> _devicesController =
@@ -32,7 +31,8 @@ class BleService with ChangeNotifier {
 
   // Streams
   Stream<List<BluetoothDevice>> get devices => _devicesController.stream;
-  Stream<BluetoothDevice?> get connectedDevice => _connectedDeviceController.stream;
+  Stream<BluetoothDevice?> get connectedDevice =>
+      _connectedDeviceController.stream;
   Stream<SensorReading> get sensorReadings => _sensorReadingController.stream;
 
   // State variables
@@ -79,22 +79,23 @@ class BleService with ChangeNotifier {
         .firstWhere((isOn) => isOn);
     print("BleService: Bluetooth adapter is on.");
 
-
     // Check initial connection state
-    List<BluetoothDevice> connectedDevices = await FlutterBluePlus.connectedDevices;
+    List<BluetoothDevice> connectedDevices =
+        await FlutterBluePlus.connectedDevices;
     if (connectedDevices.isNotEmpty) {
       // Optional: Try to find the specific device if multiple are connected
       _currentDevice = connectedDevices.first; // Assuming the first one is ours
       _isConnected = true;
       _connectedDeviceController.add(_currentDevice);
-      print('BleService: Found already connected device: ${_currentDevice?.platformName}');
+      print(
+        'BleService: Found already connected device: ${_currentDevice?.platformName}',
+      );
       // Re-discover services and set up notifications if needed on app restart
       _discoverServices();
       notifyListeners();
     } else {
-        print('BleService: No devices already connected.');
-      }
-
+      print('BleService: No devices already connected.');
+    }
 
     // Listen to connection state changes of the *current* device
     // This listener is better set up per device after connection
@@ -114,74 +115,86 @@ class BleService with ChangeNotifier {
     var bluetoothScanStatus = await Permission.bluetoothScan.request();
     print('BleService: Bluetooth Scan permission status: $bluetoothScanStatus');
     var bluetoothConnectStatus = await Permission.bluetoothConnect.request();
-    print('BleService: Bluetooth Connect permission status: $bluetoothConnectStatus');
-    var bluetoothAdvertiseStatus = await Permission.bluetoothAdvertise.request(); // Useful if you were acting as server too
-     print('BleService: Bluetooth Advertise permission status: $bluetoothAdvertiseStatus');
-
+    print(
+      'BleService: Bluetooth Connect permission status: $bluetoothConnectStatus',
+    );
+    var bluetoothAdvertiseStatus =
+        await Permission.bluetoothAdvertise
+            .request(); // Useful if you were acting as server too
+    print(
+      'BleService: Bluetooth Advertise permission status: $bluetoothAdvertiseStatus',
+    );
 
     // Check if necessary permissions are granted
-    if (!locationStatus.isGranted || !bluetoothScanStatus.isGranted || !bluetoothConnectStatus.isGranted) {
+    if (!locationStatus.isGranted ||
+        !bluetoothScanStatus.isGranted ||
+        !bluetoothConnectStatus.isGranted) {
       print('BleService: Necessary BLE permissions not granted!');
       // You might want to inform the user or open app settings
     } else {
-        print('BleService: All necessary BLE permissions granted.');
-      }
+      print('BleService: All necessary BLE permissions granted.');
+    }
   }
 
   // Helper function to log all scan results before filtering
   void _logScanResults(List<ScanResult> results) {
-      print('--- Raw Scan Results ---');
-      if (results.isEmpty) {
-          print('No devices found during this scan result batch.');
-      } else {
-          for (ScanResult result in results) {
-              print('Device Found:');
-              print('- Platform Name: ${result.device.platformName}');
-              print('- Device ID: ${result.device.remoteId}');
-              print('- RSSI: ${result.rssi}');
-              print('- Advertised Name: ${result.advertisementData.localName}');
-              print('- Advertised Services: ${result.advertisementData.serviceUuids}');
-              print('- Manufacturer Data: ${result.advertisementData.manufacturerData}');
-              print('- Service Data: ${result.advertisementData.serviceData}');
-              print('- TX Power Level: ${result.advertisementData.txPowerLevel}');
-              print('- Connectable: ${result.advertisementData.connectable}');
-              
-              // Check if this is our target ESP32 device
-              bool nameMatches = true;
-              bool serviceMatches = result.advertisementData.serviceUuids.contains(AppConstants.esp32ServiceUuid.toLowerCase());
-              print('- Name Matches ("ESP32"): $nameMatches');
-              print('- Service Matches: $serviceMatches');
-              print('- Is Target Device: ${nameMatches || serviceMatches}');
-              print('---');
-          }
-      }
-      print('--- End Raw Scan Results ---');
-  }
+    print('--- Raw Scan Results ---');
+    if (results.isEmpty) {
+      print('No devices found during this scan result batch.');
+    } else {
+      for (ScanResult result in results) {
+        print('Device Found:');
+        print('- Platform Name: ${result.device.platformName}');
+        print('- Device ID: ${result.device.remoteId}');
+        print('- RSSI: ${result.rssi}');
+        print('- Advertised Name: ${result.advertisementData.localName}');
+        print(
+          '- Advertised Services: ${result.advertisementData.serviceUuids}',
+        );
+        print(
+          '- Manufacturer Data: ${result.advertisementData.manufacturerData}',
+        );
+        print('- Service Data: ${result.advertisementData.serviceData}');
+        print('- TX Power Level: ${result.advertisementData.txPowerLevel}');
+        print('- Connectable: ${result.advertisementData.connectable}');
 
+        // Check if this is our target ESP32 device
+        bool nameMatches = true;
+        bool serviceMatches = result.advertisementData.serviceUuids.contains(
+          AppConstants.esp32ServiceUuid.toLowerCase(),
+        );
+        print('- Name Matches ("ESP32"): $nameMatches');
+        print('- Service Matches: $serviceMatches');
+        print('- Is Target Device: ${nameMatches || serviceMatches}');
+        print('---');
+      }
+    }
+    print('--- End Raw Scan Results ---');
+  }
 
   // Start scanning for BLE devices
   Future<void> startScan() async {
     print('BleService: Starting scan...');
     if (_isScanning) {
-        print('BleService: Scan is already running.');
-        return;
-      }
+      print('BleService: Scan is already running.');
+      return;
+    }
 
     // Check if adapter is on before scanning
     if (await FlutterBluePlus.adapterState.first != BluetoothAdapterState.on) {
-         print('BleService: Cannot start scan, Bluetooth adapter is off.');
-         // Optionally notify UI or handle error
-         return;
+      print('BleService: Cannot start scan, Bluetooth adapter is off.');
+      // Optionally notify UI or handle error
+      return;
     }
-
 
     // Check if location services are enabled
     if (!await Permission.location.serviceStatus.isEnabled) {
-        print('BleService: Location services are not enabled. Prompting user to enable them.');
-        // Optionally, prompt the user to enable location services
-        return;
+      print(
+        'BleService: Location services are not enabled. Prompting user to enable them.',
+      );
+      // Optionally, prompt the user to enable location services
+      return;
     }
-
 
     // Clear previous results
     _discoveredDevices = [];
@@ -197,35 +210,39 @@ class BleService with ChangeNotifier {
     notifyListeners(); // Notify UI that scanning has started
 
     // Listen to scan results
-    FlutterBluePlus.scanResults.listen((results) async {
-      // Log all raw scan results first
-      _logScanResults(results);
+    FlutterBluePlus.scanResults
+        .listen((results) async {
+          // Log all raw scan results first
+          _logScanResults(results);
 
-      // Store all devices without filtering
-      _discoveredDevices = results
-          .map((result) => result.device)
-          .toList();
-      
-      // Log all discovered devices
-      for (BluetoothDevice device in _discoveredDevices) {
-        print('BleService: Discovered device - Name: ${device.platformName}, MAC: ${device.remoteId}');
-      }
+          // Store all devices without filtering
+          _discoveredDevices = results.map((result) => result.device).toList();
 
-      // Print devices found
-      print('BleService: Devices found: ${_discoveredDevices.length}');
-      for (BluetoothDevice device in _discoveredDevices) {
-        print('BleService: Device: ${device.platformName} (${device.remoteId})');
-      }
+          // Log all discovered devices
+          for (BluetoothDevice device in _discoveredDevices) {
+            print(
+              'BleService: Discovered device - Name: ${device.platformName}, MAC: ${device.remoteId}',
+            );
+          }
 
-      // Update stream
-      _devicesController.add(_discoveredDevices);
-      notifyListeners(); // Notify UI about updated device list
-    }).onDone(() {
-        // This is called when the scan times out or is stopped manually
-        print('BleService: Scan finished.');
-        _isScanning = false;
-        notifyListeners();
-    });
+          // Print devices found
+          print('BleService: Devices found: ${_discoveredDevices.length}');
+          for (BluetoothDevice device in _discoveredDevices) {
+            print(
+              'BleService: Device: ${device.platformName} (${device.remoteId})',
+            );
+          }
+
+          // Update stream
+          _devicesController.add(_discoveredDevices);
+          notifyListeners(); // Notify UI about updated device list
+        })
+        .onDone(() {
+          // This is called when the scan times out or is stopped manually
+          print('BleService: Scan finished.');
+          _isScanning = false;
+          notifyListeners();
+        });
   }
 
   // Stop scanning
@@ -237,57 +254,64 @@ class BleService with ChangeNotifier {
 
   // Connect to a device
   Future<bool> connectToDevice(BluetoothDevice device) async {
-  print('BleService: 🔍 [START] Discovering services...');
-  print('BleService: Attempting to connect to ${device.platformName}');
+    print('BleService: 🔍 [START] Discovering services...');
+    print('BleService: Attempting to connect to ${device.platformName}');
 
-  try {
-    // Pasang listener lebih awal, tetap dibutuhkan oleh BleProvider
-    StreamSubscription<BluetoothConnectionState>? connectionStateSubscription;
-    connectionStateSubscription = device.connectionState.listen((state) async {
-      print('BleService: Device ${device.platformName} connection state: $state');
-      if (state == BluetoothConnectionState.disconnected) {
-        _currentDevice = null;
-        _isConnected = false;
-        _connectedDeviceController.add(null);
-        notifyListeners();
-        await connectionStateSubscription?.cancel();
-      } else if (state == BluetoothConnectionState.connected) {
-        print('BleService: Device ${device.platformName} connected via listener.');
-        _currentDevice = device;
-        _isConnected = true;
-        _connectedDeviceController.add(_currentDevice);
-        notifyListeners();
-        // Jangan panggil _discoverServices() di sini lagi
-      }
-    });
+    try {
+      // Pasang listener lebih awal, tetap dibutuhkan oleh BleProvider
+      StreamSubscription<BluetoothConnectionState>? connectionStateSubscription;
+      connectionStateSubscription = device.connectionState.listen((
+        state,
+      ) async {
+        print(
+          'BleService: Device ${device.platformName} connection state: $state',
+        );
+        if (state == BluetoothConnectionState.disconnected) {
+          _currentDevice = null;
+          _isConnected = false;
+          _connectedDeviceController.add(null);
+          notifyListeners();
+          await connectionStateSubscription?.cancel();
+        } else if (state == BluetoothConnectionState.connected) {
+          print(
+            'BleService: Device ${device.platformName} connected via listener.',
+          );
+          _currentDevice = device;
+          _isConnected = true;
+          _connectedDeviceController.add(_currentDevice);
+          notifyListeners();
+          // Jangan panggil _discoverServices() di sini lagi
+        }
+      });
 
-    // Lanjutkan proses connect
-    await device.connect();
-    print('BleService: connect() method finished.');
+      // Lanjutkan proses connect
+      await device.connect();
+      print('BleService: connect() method finished.');
 
-    // Langsung update state dan panggil discoverServices di sini
-    _currentDevice = device;
-    _isConnected = true;
-    _connectedDeviceController.add(_currentDevice);
-    notifyListeners();
+      // Langsung update state dan panggil discoverServices di sini
+      _currentDevice = device;
+      _isConnected = true;
+      _connectedDeviceController.add(_currentDevice);
+      notifyListeners();
 
-    await _discoverServices(); // <--- Penting di sini
+      await _discoverServices(); // <--- Penting di sini
 
-    return true;
-  } catch (e) {
-    print('BleService: Error connecting to device: $e');
-    _currentDevice = null;
-    _isConnected = false;
-    _connectedDeviceController.add(null);
-    notifyListeners();
-    return false;
+      return true;
+    } catch (e) {
+      print('BleService: Error connecting to device: $e');
+      _currentDevice = null;
+      _isConnected = false;
+      _connectedDeviceController.add(null);
+      notifyListeners();
+      return false;
+    }
   }
-}
-
 
   // Disconnect from current device
   Future<void> disconnect() async {
-    print('BleService: Attempting to disconnect from ${_currentDevice?.platformName}');
+    print(
+      'BleService: Attempting to disconnect from ${_currentDevice?.platformName}',
+    );
     if (_currentDevice != null) {
       try {
         await _currentDevice!.disconnect();
@@ -302,8 +326,8 @@ class BleService with ChangeNotifier {
         notifyListeners();
       }
     } else {
-        print('BleService: No device currently connected to disconnect.');
-      }
+      print('BleService: No device currently connected to disconnect.');
+    }
   }
 
   // Discover services and set up notifications
@@ -314,47 +338,70 @@ class BleService with ChangeNotifier {
     }
 
     try {
-      print('BleService: Discovering services for device: ${_currentDevice!.platformName}');
-      List<BluetoothService> services = await _currentDevice!.discoverServices();
+      print(
+        'BleService: Discovering services for device: ${_currentDevice!.platformName}',
+      );
+      List<BluetoothService> services =
+          await _currentDevice!.discoverServices();
       print('BleService: Found ${services.length} services');
 
       bool foundTargetCharacteristic = false;
 
       for (BluetoothService service in services) {
-        print('BleService: Discovered Service UUID: ${service.uuid.toString().toLowerCase()}');
+        print(
+          'BleService: Discovered Service UUID: ${service.uuid.toString().toLowerCase()}',
+        );
 
         // Check if this is our target Service UUID (matching the ESP32 Server Service UUID)
-        if (service.uuid.toString().toLowerCase() == esp32ServiceUuid.toLowerCase()) {
+        if (service.uuid.toString().toLowerCase() ==
+            esp32ServiceUuid.toLowerCase()) {
           print('BleService: Found target ESP32C3 service.');
 
           // Look for the sensor data characteristic within this service
-          for (BluetoothCharacteristic characteristic in service.characteristics) {
-            print('BleService: Discovered Characteristic UUID: ${characteristic.uuid.toString().toLowerCase()}, Properties: ${characteristic.properties}');
+          for (BluetoothCharacteristic characteristic
+              in service.characteristics) {
+            print(
+              'BleService: Discovered Characteristic UUID: ${characteristic.uuid.toString().toLowerCase()}, Properties: ${characteristic.properties}',
+            );
 
             // Check if this is our target Characteristic UUID
-            if (characteristic.uuid.toString().toLowerCase() == esp32CharacteristicUuid.toLowerCase()) {
+            if (characteristic.uuid.toString().toLowerCase() ==
+                esp32CharacteristicUuid.toLowerCase()) {
               print('BleService: Found target ESP32C3 characteristic.');
 
               // Subscribe to notifications if the characteristic supports it
               if (characteristic.properties.notify) {
                 await characteristic.setNotifyValue(true);
-                print('BleService: Subscribed to notifications for target characteristic.');
+                print(
+                  'BleService: Subscribed to notifications for target characteristic.',
+                );
 
                 // Listen to value changes on this characteristic
                 characteristic.value.listen((value) {
+                  // TAMBAHKAN BARIS INI UNTUK MENCATAT WAKTU TERIMA
+                  print(
+                    'Waktu Terima Flutter: ${DateTime.now().millisecondsSinceEpoch}',
+                  );
+
                   if (value.isNotEmpty && _currentSesiId != -1) {
                     // Parse the data
                     _handleSensorData(value);
                   } else if (value.isEmpty) {
-                         print('BleService: Received empty data from characteristic.');
+                    print(
+                      'BleService: Received empty data from characteristic.',
+                    );
                   } else if (_currentSesiId == -1) {
-                         print('BleService: Received data but currentSesiId is -1. Data: ${String.fromCharCodes(value)}');
+                    print(
+                      'BleService: Received data but currentSesiId is -1. Data: ${String.fromCharCodes(value)}',
+                    );
                   }
                 });
                 foundTargetCharacteristic = true; // Found and subscribed
                 break; // Stop looking for characteristic in this service
               } else {
-                  print('BleService: Target characteristic does NOT support notify.');
+                print(
+                  'BleService: Target characteristic does NOT support notify.',
+                );
               }
             }
           }
@@ -365,15 +412,22 @@ class BleService with ChangeNotifier {
 
       // Optional: Fallback if the exact service/characteristic wasn't found
       if (!foundTargetCharacteristic) {
-        print('BleService: Target service or characteristic not found. Trying generic approach for notify characteristic.');
+        print(
+          'BleService: Target service or characteristic not found. Trying generic approach for notify characteristic.',
+        );
         // This generic fallback is less reliable but might work if UUIDs aren't matched exactly
         for (BluetoothService service in services) {
           try {
-            for (BluetoothCharacteristic characteristic in service.characteristics) {
+            for (BluetoothCharacteristic characteristic
+                in service.characteristics) {
               if (characteristic.properties.notify) {
-                print('BleService: Found generic characteristic with notify: ${characteristic.uuid.toString().toLowerCase()}');
+                print(
+                  'BleService: Found generic characteristic with notify: ${characteristic.uuid.toString().toLowerCase()}',
+                );
                 await characteristic.setNotifyValue(true);
-                print('BleService: Subscribed to notifications for generic characteristic.');
+                print(
+                  'BleService: Subscribed to notifications for generic characteristic.',
+                );
                 characteristic.value.listen(
                   (value) {
                     if (value.isNotEmpty && _currentSesiId != -1) {
@@ -381,8 +435,10 @@ class BleService with ChangeNotifier {
                     }
                   },
                   onError: (error) {
-                    print('BleService: Error receiving notification on generic characteristic: $error');
-                  }
+                    print(
+                      'BleService: Error receiving notification on generic characteristic: $error',
+                    );
+                  },
                 );
                 // Note: This generic approach will subscribe to *all* notify characteristics found.
                 // If you only expect data from one, this might be fine.
@@ -391,12 +447,13 @@ class BleService with ChangeNotifier {
               }
             }
           } catch (e) {
-            print('BleService: Error setting up notifications for a generic service: $e');
+            print(
+              'BleService: Error setting up notifications for a generic service: $e',
+            );
             continue;
           }
         }
       }
-
     } catch (e) {
       print('BleService: Error discovering services: $e');
       // Rethrow or handle appropriately
@@ -408,7 +465,9 @@ class BleService with ChangeNotifier {
   void _handleSensorData(List<int> data) {
     try {
       // Convert bytes to string
-      String jsonString = utf8.decode(data); // Use utf8.decode for potentially non-ASCII chars
+      String jsonString = utf8.decode(
+        data,
+      ); // Use utf8.decode for potentially non-ASCII chars
       print('BleService: Received raw data: $data'); // Log raw bytes too
       print('BleService: Received data as string: $jsonString');
 
@@ -419,24 +478,34 @@ class BleService with ChangeNotifier {
       if (!jsonData.containsKey(AppConstants.keyStatus) ||
           !jsonData.containsKey(AppConstants.keyTimestamp) ||
           !jsonData.containsKey(AppConstants.keySpo2)) {
-        print('BleService: Invalid data format: missing required fields in JSON: $jsonString');
+        print(
+          'BleService: Invalid data format: missing required fields in JSON: $jsonString',
+        );
         return;
       }
 
       // Create sensor reading object
       // Ensure _currentSesiId is valid before creating reading
       if (_currentSesiId != -1) {
-             SensorReading reading = SensorReading.fromEsp32c3Json(jsonData, _currentSesiId);
-             print('BleService: Created sensor reading: SesiId=${reading.sesiId}, SpO2=${reading.spo2}, Status=${reading.status}, Timestamp=${reading.timestamp}');
+        SensorReading reading = SensorReading.fromEsp32c3Json(
+          jsonData,
+          _currentSesiId,
+        );
+        print(
+          'BleService: Created sensor reading: SesiId=${reading.sesiId}, SpO2=${reading.spo2}, Status=${reading.status}, Timestamp=${reading.timestamp}',
+        );
 
-             // Add to stream
-             _sensorReadingController.add(reading);
-         } else {
-              print('BleService: Received data but _currentSesiId is invalid (-1). Cannot create SensorReading.');
-         }
-
+        // Add to stream
+        _sensorReadingController.add(reading);
+      } else {
+        print(
+          'BleService: Received data but _currentSesiId is invalid (-1). Cannot create SensorReading.',
+        );
+      }
     } catch (e) {
-      print('BleService: Error processing sensor data: $e, Data: ${String.fromCharCodes(data)}');
+      print(
+        'BleService: Error processing sensor data: $e, Data: ${String.fromCharCodes(data)}',
+      );
     }
   }
 
